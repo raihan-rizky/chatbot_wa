@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 import httpx
 
@@ -30,19 +29,29 @@ def _base_url() -> str:
     return f"{settings.supabase_url}/rest/v1/{TABLE}"
 
 
-async def save_message(phone: str, role: str, content: str) -> None:
+async def save_message(
+    phone: str,
+    role: str,
+    content: str,
+    image_url: str | None = None,
+) -> None:
     """Save a single message to Supabase.
 
     Args:
         phone: User phone number.
         role: 'user' or 'assistant'.
         content: Message text.
+        image_url: Optional WhatsApp media ID or description for image messages.
     """
+    payload: dict = {"phone": phone, "role": role, "content": content}
+    if image_url:
+        payload["image_url"] = image_url
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             _base_url(),
             headers=_headers(),
-            json={"phone": phone, "role": role, "content": content},
+            json=payload,
         )
         if resp.status_code >= 400:
             logger.error("Supabase save failed: %s %s", resp.status_code, resp.text)
@@ -58,11 +67,11 @@ async def get_history(phone: str, limit: int = 20) -> list[dict]:
         limit: Max messages to retrieve (newest last).
 
     Returns:
-        List of dicts with keys: role, content, created_at.
+        List of dicts with keys: role, content, image_url, created_at.
     """
     params = {
         "phone": f"eq.{phone}",
-        "select": "role,content,created_at",
+        "select": "role,content,image_url,created_at",
         "order": "created_at.desc",
         "limit": str(limit),
     }
@@ -76,7 +85,6 @@ async def get_history(phone: str, limit: int = 20) -> list[dict]:
             return []
 
         messages = resp.json()
-        # Reverse so oldest first
         messages.reverse()
         return messages
 

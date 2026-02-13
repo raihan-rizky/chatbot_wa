@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Request, Response
 
 from app.config import get_settings
 from app.services.llm_service import get_ai_response
+from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media
 from app.services.whatsapp import send_message
 
@@ -53,12 +54,7 @@ async def receive_message(request: Request):
             for change in entry.get("changes", []):
                 value = change.get("value", {})
 
-                # Skip status updates (delivered, read, etc.)
                 if "messages" not in value:
-                    continue
-
-                # Skip if statuses field present (delivery receipts)
-                if "statuses" in value and "messages" not in value:
                     continue
 
                 for message in value["messages"]:
@@ -66,13 +62,11 @@ async def receive_message(request: Request):
                     sender = message["from"]
                     msg_type = message.get("type")
 
-                    # Deduplicate — Meta sometimes sends the same message twice
+                    # Deduplicate
                     if msg_id in _processed_ids:
                         logger.info("Skipping duplicate message %s", msg_id)
                         continue
                     _processed_ids.add(msg_id)
-
-                    # Keep set small (memory cleanup)
                     if len(_processed_ids) > 1000:
                         _processed_ids.clear()
 
@@ -92,7 +86,7 @@ async def receive_message(request: Request):
 
 
 async def _handle_text(phone: str, message: dict) -> None:
-    """Handle a text message — generate AI reply."""
+    """Handle a text message — generate AI reply and save to Supabase."""
     text = message["text"]["body"]
     logger.info("Text from %s: %s", phone, text[:80])
 
@@ -110,21 +104,32 @@ async def _handle_text(phone: str, message: dict) -> None:
 
 
 async def _handle_image(phone: str, message: dict) -> None:
-    """Handle an image message — download, OCR, extract info."""
+    """Handle an image message — download, OCR, extract info, save to Supabase."""
     media_id = message["image"]["id"]
     caption = message.get("image", {}).get("caption")
 
     logger.info("Image from %s (media_id=%s)", phone, media_id)
 
     try:
+        # Save user image message to Supabase
+        user_content = caption if caption else "[Gambar dikirim]"
+        await save_message(phone, "user", user_content, image_url=f"wa_media:{media_id}")
+
+        # Download image from WhatsApp
         image_bytes = await download_wa_media(media_id)
         logger.info("Downloaded image: %d bytes", len(image_bytes))
 
+        # Analyze with vision model
         result = await analyze_image(image_bytes, caption)
         logger.info("Analysis done for %s", phone)
 
+        # Save AI response to Supabase
+        await save_message(phone, "assistant", result)
+
+        # Send result back via WhatsApp
         await send_message(phone, result)
         logger.info("Image analysis sent to %s", phone)
+
     except Exception:
         logger.error("Failed to process image from %s:\n%s", phone, traceback.format_exc())
         try:
