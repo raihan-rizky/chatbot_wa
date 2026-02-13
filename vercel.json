@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 60
+    }
+  },
   "builds": [
     {
       "src": "app/main.py",
