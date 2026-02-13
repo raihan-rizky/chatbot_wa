@@ -138,7 +138,7 @@ async def _handle_image(phone: str, message: dict) -> None:
                 f"💰 Total: {result.get('total')}\n"
                 f"🛒 Item: {len(result.get('items', []))}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
-                "https://docs.google.com/spreadsheets/d/1hniwPJGEgJwGAOWCunQxHugMoCUHmCa9yxmXxGcJwac/edit?usp=sharing"
+                "https://bit.ly/ExcelTeladanAI"
             )
         else:
             append_log(phone, "assistant", result)
