@@ -108,7 +108,10 @@ def append_receipt_data(data: dict) -> None:
     # Format items list
     items_list = data.get("items", [])
     if isinstance(items_list, list):
-        items_str = ", ".join(items_list)
+        # Format as numbered list in single cell:
+        # 1. Item A
+        # 2. Item B
+        items_str = "\n".join([f"{i+1}. {item}" for i, item in enumerate(items_list)])
     else:
         items_str = str(items_list)
     
