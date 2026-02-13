@@ -40,8 +40,8 @@ When given an image of a receipt, extract ALL information and present it in this
 📅 **Tanggal:** [date if visible]
 
 🛒 **Daftar Belanja:**
-1. [item name] — Rp [price]
-2. [item name] — Rp [price]
+1. [item name] — Rp [price] — [Item Quantity]
+2. [item name] — Rp [price] — [Item Quantity]
 ...
 
 💰 **Subtotal:** Rp [subtotal]
