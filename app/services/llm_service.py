@@ -1,19 +1,16 @@
-"""LLM service — LangChain + Nebius AI Studio."""
+"""LLM service — LangChain + Nebius AI Studio with Supabase chat history."""
 
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_nebius import ChatNebius
 
 from app.config import get_settings
+from app.services.chat_history import save_message, get_history
 
 logger = logging.getLogger(__name__)
-
-# ── Per-user conversation history (in-memory) ────────────────────
-_history: dict[str, list[HumanMessage | AIMessage]] = defaultdict(list)
 
 # ── System prompt ────────────────────────────────────────────────
 SYSTEM_PROMPT = (
@@ -41,48 +38,41 @@ def _get_llm() -> ChatNebius:
     return _llm
 
 
-def _trim_history(phone: str) -> None:
-    """Keep only the latest N message pairs for a user."""
-    max_len = get_settings().max_history_length
-    if len(_history[phone]) > max_len:
-        _history[phone] = _history[phone][-max_len:]
-
-
 async def get_ai_response(phone: str, user_message: str) -> str:
-    """Generate an AI response for *user_message* within the user's conversation.
+    """Generate an AI response using persistent Supabase history.
 
     Args:
-        phone: The sender's phone number (used as conversation key).
+        phone: The sender's phone number (conversation key).
         user_message: The text the user sent.
 
     Returns:
         The AI-generated reply as a plain string.
     """
     llm = _get_llm()
+    settings = get_settings()
 
-    # Append the new user message to history
-    _history[phone].append(HumanMessage(content=user_message))
-    _trim_history(phone)
+    # Save user message to Supabase
+    await save_message(phone, "user", user_message)
 
-    # Build the full message list: system + history
-    messages = [SystemMessage(content=SYSTEM_PROMPT), *_history[phone]]
+    # Load recent history from Supabase
+    history_rows = await get_history(phone, limit=settings.max_history_length)
+
+    # Convert DB rows to LangChain messages
+    messages = [SystemMessage(content=SYSTEM_PROMPT)]
+    for row in history_rows:
+        if row["role"] == "user":
+            messages.append(HumanMessage(content=row["content"]))
+        elif row["role"] == "assistant":
+            messages.append(AIMessage(content=row["content"]))
 
     try:
         response = await llm.ainvoke(messages)
         reply = response.content
 
-        # Store the assistant reply in history
-        _history[phone].append(AIMessage(content=reply))
-        _trim_history(phone)
+        # Save AI reply to Supabase
+        await save_message(phone, "assistant", reply)
 
         return reply  # type: ignore[return-value]
     except Exception:
         logger.exception("Nebius LLM call failed for phone=%s", phone)
-        # Remove the user message we just added so history stays clean
-        _history[phone].pop()
         return "Sorry, I'm having trouble thinking right now. Please try again in a moment. 🙏"
-
-
-def clear_history(phone: str) -> None:
-    """Reset conversation history for a user."""
-    _history.pop(phone, None)

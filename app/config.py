@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str
     whatsapp_verify_token: str
 
+    # ── Supabase ─────────────────────────────────────────────────
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+
     # ── App ──────────────────────────────────────────────────────
     max_history_length: int = 20  # max messages kept per user
 
