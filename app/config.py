@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
 
+    # ── Google Sheets ────────────────────────────────────────────
+    google_sheet_id: str = ""
+    google_creds_path: str = "credentials.json"
+    google_creds_json: str = ""  # Content of credentials.json for deployment
+
     # ── App ──────────────────────────────────────────────────────
     max_history_length: int = 20  # max messages kept per user
 

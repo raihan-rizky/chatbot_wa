@@ -6,3 +6,6 @@ httpx>=0.28.0
 python-dotenv>=1.0.0
 pydantic-settings>=2.7.0
 Pillow>=11.0.0
+
+gspread>=6.0.0
+oauth2client>=4.1.3

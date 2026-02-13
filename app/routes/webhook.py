@@ -12,6 +12,7 @@ from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media
 from app.services.whatsapp import send_message
+from app.services.sheets import append_log
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,9 @@ async def _handle_image(phone: str, message: dict) -> None:
 
         # Save AI response to Supabase
         await save_message(phone, "assistant", result)
+
+        # Log to Google Sheets
+        append_log(phone, "assistant", result)
 
         # Send result back via WhatsApp
         await send_message(phone, result)
