@@ -35,20 +35,28 @@ def _get_vision_llm() -> ChatNebius:
 
 # ── Receipt extraction prompt ───────────────────────────────────
 RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant.
-Your task is to extract data from shopping receipts into STRICT JSON format.
+Your task is to extract data from shopping receipts into STRICT JSON format and categorize items.
+
+Categories:
+1. Spanduk: Banners, baliho, large format printing, outdoor ads.
+2. Percetakan: General printing (invitations, flyers, brochures, stickers, business cards), offset.
+3. ATK: Stationery, office supplies, pens, paper, books, etc.
 
 JSON Schema:
 {
   "no_nota": "ID of transaction or '0'",
-  "items": ["Item Name 1 (qty)", "Item Name 2 (qty)"],
-"total": "Total amount (numeric string) or '0'",
+  "spanduk_items": ["Item Name (qty)", "Item Name (qty)"],
+  "percetakan_items": ["Item Name (qty)", "Item Name (qty)"],
+  "atk_items": ["Item Name (qty)", "Item Name (qty)"],
+  "total": "Total amount (numeric string) or '0'"
 }
 
 Rules:
 1. Output MUST be valid JSON only. Do not add markdown blocks like ```json.
-2. If a field is missing, use "Tidak Diketahui" (or "0" for amount).
-3. 'items' must be a list of strings summarizing the purchase.
-4. Do not include any conversational text.
+2. If a category has no items, return an empty list [].
+3. If a field is missing, use "Tidak Diketahui" (or "0" for amount).
+4. Classify each item into the most appropriate category based on its name.
+5. Do not include any conversational text.
 """
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.
@@ -124,6 +132,7 @@ async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str |
     try:
         response = await llm.ainvoke(messages)
         content = response.content
+        logger.info("Vision LLM output: %s", str(content)[:200]) # Log first 200 chars
 
         # Parse JSON if we expect a receipt
         if is_receipt:
@@ -141,8 +150,17 @@ def _parse_json_response(content: str) -> dict | str:
     try:
         # Remove markdown code blocks if present
         clean_content = content.replace("```json", "").replace("```", "").strip()
+        # Basic cleanup for common json errors if needed (e.g. trailing commas)
         return json.loads(clean_content)
     except json.JSONDecodeError:
         logger.warning("Failed to parse JSON from Vision model: %s", content[:100])
+        # Try to use regex to find JSON block
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if match:
+             try:
+                return json.loads(match.group(0))
+             except:
+                pass
+        
         # Return as raw text if parsing fails
         return content

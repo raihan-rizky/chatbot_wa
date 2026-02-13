@@ -91,9 +91,10 @@ def append_receipt_data(data: dict) -> None:
     Columns:
     - Col A: Timestamp
     - Col B: No Nota
-    - Col C: Items (Summary)
-    - Col D: Total Amount
-    - Col E: Raw JSON
+    - Col C: Spanduk Items
+    - Col D: Percetakan Items
+    - Col E: ATK Items
+    - Col F: Total Amount
     """
     sheet = _get_sheet()
     if sheet is None:
@@ -101,44 +102,36 @@ def append_receipt_data(data: dict) -> None:
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Extract fields with defaults
+    # Extract fields
     no_nota = data.get("no_nota", "0")
     total = data.get("total", "0")
     
-    # Format items list
-    items_list = data.get("items", [])
-    if isinstance(items_list, list):
-        # Format as numbered list in single cell:
-        # 1. Item A
-        # 2. Item B
-        items_str = "\n".join([f"{i+1}. {item}" for i, item in enumerate(items_list)])
-    else:
-        items_str = str(items_list)
-    
-    # Optional: Price per item & Item Number (if you want to add columns for them)
-    # price_per_item = data.get("price_per_item", "0")
-    # item_number = data.get("item_number", "0")
+    # Helper to format list
+    def format_list(items):
+        if not items:
+            return "-"
+        if isinstance(items, list):
+             return "\n".join([f"{i+1}. {item}" for i, item in enumerate(items)])
+        return str(items)
 
-    # Convert dict to JSON string for backup
-    import json
-    #raw_json = json.dumps(data, ensure_ascii=False)
+    spanduk_str = format_list(data.get("spanduk_items", []))
+    percetakan_str = format_list(data.get("percetakan_items", []))
+    atk_str = format_list(data.get("atk_items", []))
 
     # Check if we need to add headers (only if the sheet is likely empty)
-    # We use a simple heuristic: check if A1 is empty
     try:
         if not sheet.acell('A1').value:
-            headers = ["Timestamp", "No Nota", "Items", "Total"]
+            headers = ["Timestamp", "No Nota", "Spanduk", "Percetakan", "ATK", "Total"]
             sheet.append_row(headers)
             logger.info("📝 Added headers to Google Sheet")
     except Exception:
-        # Ignore error if check fails, just proceed to append data
         pass
 
-    row = [timestamp, no_nota, items_str, total]
+    row = [timestamp, no_nota, spanduk_str, percetakan_str, atk_str, total]
 
     try:
         sheet.append_row(row)
-        logger.info("📝 Logged receipt data to Google Sheet")
+        logger.info("📝 Logged categorized receipt data to Google Sheet")
     except Exception:
         logger.error("Failed to append receipt data", exc_info=True)
 

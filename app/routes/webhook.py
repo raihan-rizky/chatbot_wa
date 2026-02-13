@@ -131,12 +131,20 @@ async def _handle_image(phone: str, message: dict) -> None:
         if isinstance(result, dict):
             append_receipt_data(result)
             
+            # Calculate counts
+            spanduk_count = len(result.get('spanduk_items', []))
+            percetakan_count = len(result.get('percetakan_items', []))
+            atk_count = len(result.get('atk_items', []))
+
             # Format result for WhatsApp reply
             reply_text = (
                 f"✅ *Data Struk Berhasil Disimpan*\n\n"
                 f"🧾 No. Nota: {result.get('no_nota')}\n"
-                f"💰 Total: {result.get('total')}\n"
-                f"🛒 Item: {len(result.get('items', []))}\n\n"
+                f"💰 Total: {result.get('total')}\n\n"
+                f"📦 *Rincian Item:*\n"
+                f"- Spanduk: {spanduk_count}\n"
+                f"- Percetakan: {percetakan_count}\n"
+                f"- ATK: {atk_count}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
