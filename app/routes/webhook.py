@@ -137,8 +137,8 @@ async def _handle_image(phone: str, message: dict) -> None:
                 f"🧾 No. Nota: {result.get('no_nota')}\n"
                 f"💰 Total: {result.get('total')}\n"
                 f"🛒 Item: {len(result.get('items', []))}\n\n"
-                "_Cek Google Sheet dibawah untuk detail lengkap._"
-                "_(https://docs.google.com/spreadsheets/d/1hniwPJGEgJwGAOWCunQxHugMoCUHmCa9yxmXxGcJwac/edit?usp=sharing)_"
+                "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
+                "https://docs.google.com/spreadsheets/d/1hniwPJGEgJwGAOWCunQxHugMoCUHmCa9yxmXxGcJwac/edit?usp=sharing"
             )
         else:
             append_log(phone, "assistant", result)
