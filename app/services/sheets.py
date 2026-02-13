@@ -120,7 +120,18 @@ def append_receipt_data(data: dict) -> None:
     import json
     #raw_json = json.dumps(data, ensure_ascii=False)
 
-    row = [timestamp, no_nota, items_str,total]
+    # Check if we need to add headers (only if the sheet is likely empty)
+    # We use a simple heuristic: check if A1 is empty
+    try:
+        if not sheet.acell('A1').value:
+            headers = ["Timestamp", "No Nota", "Items", "Total"]
+            sheet.append_row(headers)
+            logger.info("📝 Added headers to Google Sheet")
+    except Exception:
+        # Ignore error if check fails, just proceed to append data
+        pass
+
+    row = [timestamp, no_nota, items_str, total]
 
     try:
         sheet.append_row(row)
