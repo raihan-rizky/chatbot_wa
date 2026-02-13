@@ -83,3 +83,46 @@ def append_log(phone: str, role: str, content: str) -> None:
         logger.info("📝 Logged to Google Sheet")
     except Exception:
         logger.error("Failed to append to Google Sheet", exc_info=True)
+
+
+def append_receipt_data(data: dict) -> None:
+    """Append structured receipt data to Google Sheet.
+    
+    Columns:
+    - Col A: Timestamp
+    - Col B: Store Name
+    - Col C: Date
+    - Col D: Total Amount
+    - Col E: Items (Summary)
+    - Col F: Raw JSON
+    """
+    sheet = _get_sheet()
+    if sheet is None:
+        return
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Extract fields with defaults
+    store_name = data.get("store_name", "Tidak Diketahui")
+    transaction_date = data.get("date", "Tidak Diketahui")
+    total = data.get("total", "0")
+    
+    # Format items list
+    items_list = data.get("items", [])
+    if isinstance(items_list, list):
+        items_str = ", ".join(items_list)
+    else:
+        items_str = str(items_list)
+
+    # Convert dict to JSON string for backup
+    import json
+    raw_json = json.dumps(data, ensure_ascii=False)
+
+    row = [timestamp, store_name, transaction_date, total, items_str, raw_json]
+
+    try:
+        sheet.append_row(row)
+        logger.info("📝 Logged receipt data to Google Sheet")
+    except Exception:
+        logger.error("Failed to append receipt data", exc_info=True)
+

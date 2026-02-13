@@ -12,7 +12,7 @@ from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media
 from app.services.whatsapp import send_message
-from app.services.sheets import append_log
+from app.services.sheets import append_log, append_receipt_data
 
 logger = logging.getLogger(__name__)
 
@@ -128,10 +128,24 @@ async def _handle_image(phone: str, message: dict) -> None:
         await save_message(phone, "assistant", result)
 
         # Log to Google Sheets
-        append_log(phone, "assistant", result)
+        if isinstance(result, dict):
+            append_receipt_data(result)
+            
+            # Format result for WhatsApp reply
+            reply_text = (
+                f"✅ *Data Struk Berhasil Disimpan*\n\n"
+                f"🏪 {result.get('store_name')}\n"
+                f"📅 {result.get('date')}\n"
+                f"💰 Total: {result.get('total')}\n"
+                f"🛒 Item: {len(result.get('items', []))}\n\n"
+                "_Cek Google Sheet untuk detail lengkap._"
+            )
+        else:
+            append_log(phone, "assistant", result)
+            reply_text = result
 
         # Send result back via WhatsApp
-        await send_message(phone, result)
+        await send_message(phone, reply_text)
         logger.info("Image analysis sent to %s", phone)
 
     except Exception:

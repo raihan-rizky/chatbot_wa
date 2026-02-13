@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
+import re
 
 import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -25,34 +27,30 @@ def _get_vision_llm() -> ChatNebius:
         _vision_llm = ChatNebius(
             api_key=settings.nebius_api_key,
             model=settings.nebius_vision_model,
-            temperature=0.3,  # lower temp for structured extraction
+            temperature=0.1,  # very low temp for strict JSON
             max_tokens=2048,
         )
     return _vision_llm
 
 
 # ── Receipt extraction prompt ───────────────────────────────────
-RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant specializing in reading shopping receipts (struk belanja).
-When given an image of a receipt, extract ALL information and present it in this structured format:
+RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant.
+Your task is to extract data from shopping receipts into STRICT JSON format.
 
-🏪 **Nama Toko:** [store name]
-📍 **Alamat:** [address if visible]
-📅 **Tanggal:** [date if visible]
+JSON Schema:
+{
+  "store_name": "Name of the store or 'Tidak Diketahui'",
+  "date": "Date of transaction or 'Tidak Diketahui'",
+  "total": "Total amount (numeric string) or '0'",
+  "items": ["Item Name (qty)", "Item Name (qty)"]
+}
 
-🛒 **Daftar Belanja:**
-1. [item name] — Rp [price] — [Item Quantity]
-2. [item name] — Rp [price] — [Item Quantity]
-...
-
-💰 **Subtotal:** Rp [subtotal]
-🏷️ **Diskon:** Rp [discount if any]
-💵 **Total:** Rp [total]
-💳 **Pembayaran:** [payment method if visible]
-💰 **Kembalian:** Rp [change if visible]
-
-If any field is not visible or unclear, write "Tidak terlihat".
-Always use Indonesian Rupiah (Rp) format for prices.
-Be precise with numbers — double-check amounts from the image."""
+Rules:
+1. Output MUST be valid JSON only. Do not add markdown blocks like ```json.
+2. If a field is missing, use "Tidak Diketahui" (or "0" for amount).
+3. 'items' must be a list of strings summarizing the purchase.
+4. Do not include any conversational text.
+"""
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.
 Describe what you see in the image and extract any relevant information.
@@ -61,18 +59,7 @@ Respond in the same language as any text found, or in Indonesian by default."""
 
 
 async def download_wa_media(media_id: str) -> bytes:
-    """Download media from WhatsApp Cloud API.
-
-    Steps:
-        1. GET media URL using the media_id
-        2. Download the actual file from the URL
-
-    Args:
-        media_id: The WhatsApp media ID from the webhook payload.
-
-    Returns:
-        The raw image bytes.
-    """
+    """Download media from WhatsApp Cloud API."""
     settings = get_settings()
     headers = {"Authorization": f"Bearer {settings.whatsapp_access_token}"}
 
@@ -93,15 +80,12 @@ async def download_wa_media(media_id: str) -> bytes:
         return file_resp.content
 
 
-async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str:
+async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str | dict:
     """Analyze an image using the Nebius vision model.
-
-    Args:
-        image_bytes: Raw image data.
-        caption: Optional caption/context from the user.
-
+    
     Returns:
-        The AI-generated analysis as a string.
+        str: General description (if not a receipt).
+        dict: Structured data (if receipt extraction requested).
     """
     llm = _get_vision_llm()
 
@@ -109,16 +93,20 @@ async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str:
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     # Determine prompt based on caption
+    is_receipt = False
+    
     if caption and any(kw in caption.lower() for kw in ["struk", "receipt", "nota", "belanja", "kasir"]):
+        is_receipt = True
         system_prompt = RECEIPT_SYSTEM_PROMPT
-        user_text = f"Tolong ekstrak informasi dari struk belanja ini. Catatan user: {caption}"
+        user_text = f"Extract information from this receipt. User note: {caption}"
     elif caption:
         system_prompt = GENERAL_IMAGE_PROMPT
         user_text = caption
     else:
-        # Default: try receipt extraction first, fall back to general
+        # Default: try receipt extraction first
+        is_receipt = True
         system_prompt = RECEIPT_SYSTEM_PROMPT
-        user_text = "Tolong analisa gambar ini. Jika ini struk belanja, ekstrak semua informasinya. Jika bukan struk, jelaskan isi gambar."
+        user_text = "Extract information from this image if it is a receipt."
 
     # Build multimodal message
     messages = [
@@ -136,7 +124,26 @@ async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str:
 
     try:
         response = await llm.ainvoke(messages)
-        return response.content  # type: ignore[return-value]
+        content = response.content
+
+        # Parse JSON if we expect a receipt
+        if is_receipt:
+            return _parse_json_response(str(content))
+        
+        return str(content)
+
     except Exception:
         logger.exception("Vision model call failed")
         return "Maaf, saya gagal menganalisa gambar ini. Coba kirim ulang dengan kualitas lebih baik. 🙏"
+
+
+def _parse_json_response(content: str) -> dict | str:
+    """Attempt to clean and parse JSON from LLM output."""
+    try:
+        # Remove markdown code blocks if present
+        clean_content = content.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_content)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse JSON from Vision model: %s", content[:100])
+        # Return as raw text if parsing fails
+        return content
