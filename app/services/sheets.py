@@ -90,11 +90,10 @@ def append_receipt_data(data: dict) -> None:
     
     Columns:
     - Col A: Timestamp
-    - Col B: Store Name
-    - Col C: Date
+    - Col B: No Nota
+    - Col C: Items (Summary)
     - Col D: Total Amount
-    - Col E: Items (Summary)
-    - Col F: Raw JSON
+    - Col E: Raw JSON
     """
     sheet = _get_sheet()
     if sheet is None:
@@ -103,8 +102,7 @@ def append_receipt_data(data: dict) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Extract fields with defaults
-    store_name = data.get("store_name", "Tidak Diketahui")
-    transaction_date = data.get("date", "Tidak Diketahui")
+    no_nota = data.get("no_nota", "0")
     total = data.get("total", "0")
     
     # Format items list
@@ -113,12 +111,16 @@ def append_receipt_data(data: dict) -> None:
         items_str = ", ".join(items_list)
     else:
         items_str = str(items_list)
+    
+    # Optional: Price per item & Item Number (if you want to add columns for them)
+    # price_per_item = data.get("price_per_item", "0")
+    # item_number = data.get("item_number", "0")
 
     # Convert dict to JSON string for backup
     import json
-    raw_json = json.dumps(data, ensure_ascii=False)
+    #raw_json = json.dumps(data, ensure_ascii=False)
 
-    row = [timestamp, store_name, transaction_date, total, items_str, raw_json]
+    row = [timestamp, no_nota, items_str,total]
 
     try:
         sheet.append_row(row)

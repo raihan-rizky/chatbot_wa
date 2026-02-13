@@ -39,10 +39,9 @@ Your task is to extract data from shopping receipts into STRICT JSON format.
 
 JSON Schema:
 {
-  "store_name": "Name of the store or 'Tidak Diketahui'",
-  "date": "Date of transaction or 'Tidak Diketahui'",
-  "total": "Total amount (numeric string) or '0'",
-  "items": ["Item Name (qty)", "Item Name (qty)"]
+  "no_nota": "ID of transacation or 'Tidak Diketahui'",
+  "items": ["Item Name 1 (qty)", "Item Name 2 (qty)"],
+"total": "Total amount (numeric string) or '0'",
 }
 
 Rules:
