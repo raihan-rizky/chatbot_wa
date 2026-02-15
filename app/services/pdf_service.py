@@ -25,14 +25,14 @@ class ReceiptPDF(FPDF):
     def header(self):
         # Store name
         self.set_font("Helvetica", "B", 18)
-        self.cell(0, 10, "MEDIA STATIONERY", align="C", new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 10, "Toko Teladan", align="C", new_x="LMARGIN", new_y="NEXT")
 
         # Subtitle
         self.set_font("Helvetica", "", 9)
         self.set_text_color(100, 100, 100)
         self.cell(
             0, 5,
-            "Atk, Offset, Supplier, Computer, Digital Printing",
+            "Percetakan & ATK",
             align="C", new_x="LMARGIN", new_y="NEXT",
         )
         self.set_text_color(0, 0, 0)

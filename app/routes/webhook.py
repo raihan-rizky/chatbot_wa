@@ -199,20 +199,15 @@ async def _handle_struk(phone: str, text: str) -> None:
             # Log to Google Sheets
             append_receipt_data(result)
 
-            # Calculate counts
-            spanduk_count = len(result.get("spanduk_items", []))
-            percetakan_count = len(result.get("percetakan_items", []))
-            atk_count = len(result.get("atk_items", []))
+            # Item count
+            item_count = len(result.get("items", []))
 
             # Text summary
             reply_text = (
-                f"✅ *Struk Digital Berhasil Dibuat*\n\n"
-                f"🧾 No. Nota: {result.get('no_nota')}\n"
-                f"💰 Total: {result.get('total')}\n\n"
-                f"📦 *Rincian Item:*\n"
-                f"- Spanduk: {spanduk_count}\n"
-                f"- Percetakan: {percetakan_count}\n"
-                f"- ATK: {atk_count}\n\n"
+                f"\u2705 *Struk Digital Berhasil Dibuat*\n\n"
+                f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
+                f"\ud83d\udce6 Jumlah Item: {item_count}\n"
+                f"\ud83d\udcb0 Total: Rp {result.get('total')}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
@@ -309,17 +304,14 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
             if isinstance(result, dict):
                 append_receipt_data(result)
 
-                spanduk_count = len(result.get("spanduk_items", []))
-                percetakan_count = len(result.get("percetakan_items", []))
-                atk_count = len(result.get("atk_items", []))
+                item_count = len(result.get("items", []))
 
                 reply_parts.append(
                     f"{img_label}\n"
-                    f"✅ Data Struk Berhasil Disimpan\n"
-                    f"🧾 No. Nota: {result.get('no_nota')}\n"
-                    f"💰 Total: {result.get('total')}\n"
-                    f"📦 Rincian: Spanduk({spanduk_count}) "
-                    f"Percetakan({percetakan_count}) ATK({atk_count})"
+                    f"\u2705 Data Struk Berhasil Disimpan\n"
+                    f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
+                    f"\ud83d\udce6 Item: {item_count}\n"
+                    f"\ud83d\udcb0 Total: Rp {result.get('total')}"
                 )
 
                 # Generate and send PDF receipt
@@ -386,20 +378,15 @@ async def _handle_single_image(phone: str, message: dict) -> None:
         if isinstance(result, dict):
             append_receipt_data(result)
 
-            # Calculate counts
-            spanduk_count = len(result.get('spanduk_items', []))
-            percetakan_count = len(result.get('percetakan_items', []))
-            atk_count = len(result.get('atk_items', []))
+            # Item count
+            item_count = len(result.get('items', []))
 
             # Format result for WhatsApp reply
             reply_text = (
-                f"✅ *Data Struk Berhasil Disimpan*\n\n"
-                f"🧾 No. Nota: {result.get('no_nota')}\n"
-                f"💰 Total: {result.get('total')}\n\n"
-                f"📦 *Rincian Item:*\n"
-                f"- Spanduk: {spanduk_count}\n"
-                f"- Percetakan: {percetakan_count}\n"
-                f"- ATK: {atk_count}\n\n"
+                f"\u2705 *Data Struk Berhasil Disimpan*\n\n"
+                f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
+                f"\ud83d\udce6 Jumlah Item: {item_count}\n"
+                f"\ud83d\udcb0 Total: Rp {result.get('total')}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
