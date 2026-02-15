@@ -35,28 +35,29 @@ def _get_vision_llm() -> ChatNebius:
 
 # ── Receipt extraction prompt ───────────────────────────────────
 RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant.
-Your task is to extract data from shopping receipts into STRICT JSON format and categorize items.
-
-Categories:
-1. Spanduk: Banners, baliho, large format printing, outdoor ads.
-2. Percetakan: General printing (invitations, flyers, brochures, stickers, business cards), offset.
-3. ATK: Stationery, office supplies, pens, paper, books, etc.
+Your task is to extract data from shopping receipts into STRICT JSON format.
 
 JSON Schema:
 {
-  "no_nota": "ID of transaction or '0'",
-  "spanduk_items": ["Item Name (qty)", "Item Name (qty)"],
-  "percetakan_items": ["Item Name (qty)", "Item Name (qty)"],
-  "atk_items": ["Item Name (qty)", "Item Name (qty)"],
-  "total": "Total amount (numeric string) or '0'"
+  "no_nota": "Receipt/transaction ID or 'Tidak Diketahui'",
+  "items": [
+    {
+      "keterangan": "Item description/name",
+      "jumlah": "Quantity as string (e.g. '2', '1 pcs', '3 lbr')",
+      "harga": "Unit price as numeric string (e.g. '50000')",
+      "total": "Line total as numeric string (jumlah x harga, e.g. '100000')"
+    }
+  ],
+  "total": "Grand total amount as numeric string or '0'"
 }
 
 Rules:
 1. Output MUST be valid JSON only. Do not add markdown blocks like ```json.
-2. If a category has no items, return an empty list [].
-3. If a field is missing, use "Tidak Diketahui" (or "0" for amount).
-4. Classify each item into the most appropriate category based on its name.
-5. Do not include any conversational text.
+2. Each item must have keterangan, jumlah, harga, and total.
+3. If quantity is unclear, default to "1".
+4. If unit price is unclear but total is known, set harga = total.
+5. If a field is missing, use "Tidak Diketahui" for text or "0" for amounts.
+6. Do not include any conversational text.
 """
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.

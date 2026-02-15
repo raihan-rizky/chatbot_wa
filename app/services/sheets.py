@@ -87,51 +87,58 @@ def append_log(phone: str, role: str, content: str) -> None:
 
 def append_receipt_data(data: dict) -> None:
     """Append structured receipt data to Google Sheet.
-    
-    Columns:
+
+    One row per item with columns:
     - Col A: Timestamp
     - Col B: No Nota
-    - Col C: Spanduk Items
-    - Col D: Percetakan Items
-    - Col E: ATK Items
-    - Col F: Total Amount
+    - Col C: No (item number)
+    - Col D: Keterangan
+    - Col E: Jumlah
+    - Col F: Harga
+    - Col G: Total
     """
     sheet = _get_sheet()
     if sheet is None:
         return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+
     # Extract fields
-    no_nota = data.get("no_nota", "0")
-    total = data.get("total", "0")
-    
-    # Helper to format list
-    def format_list(items):
-        if not items:
-            return "-"
-        if isinstance(items, list):
-             return "\n".join([f"{i+1}. {item}" for i, item in enumerate(items)])
-        return str(items)
+    no_nota = data.get("no_nota", "Tidak Diketahui")
+    items = data.get("items", [])
+    grand_total = data.get("total", "0")
 
-    spanduk_str = format_list(data.get("spanduk_items", []))
-    percetakan_str = format_list(data.get("percetakan_items", []))
-    atk_str = format_list(data.get("atk_items", []))
-
-    # Check if we need to add headers (only if the sheet is likely empty)
+    # Check if we need to add headers
     try:
         if not sheet.acell('A1').value:
-            headers = ["Timestamp", "No Nota", "Spanduk", "Percetakan", "ATK", "Total"]
+            headers = ["Timestamp", "No Nota", "No", "Keterangan", "Jumlah", "Harga", "Total"]
             sheet.append_row(headers)
-            logger.info("📝 Added headers to Google Sheet")
+            logger.info("Added headers to Google Sheet")
     except Exception:
         pass
 
-    row = [timestamp, no_nota, spanduk_str, percetakan_str, atk_str, total]
+    # Append one row per item
+    rows = []
+    for idx, item in enumerate(items, 1):
+        row = [
+            timestamp,
+            no_nota,
+            idx,
+            item.get("keterangan", ""),
+            item.get("jumlah", ""),
+            item.get("harga", "0"),
+            item.get("total", "0"),
+        ]
+        rows.append(row)
+
+    # Append a summary/total row
+    if items:
+        rows.append([timestamp, no_nota, "", "TOTAL", "", "", grand_total])
 
     try:
-        sheet.append_row(row)
-        logger.info("📝 Logged categorized receipt data to Google Sheet")
+        for row in rows:
+            sheet.append_row(row)
+        logger.info("Logged %d item rows to Google Sheet (nota: %s)", len(rows), no_nota)
     except Exception:
         logger.error("Failed to append receipt data", exc_info=True)
 
