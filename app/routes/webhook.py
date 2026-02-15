@@ -204,10 +204,10 @@ async def _handle_struk(phone: str, text: str) -> None:
 
             # Text summary
             reply_text = (
-                f"\u2705 *Struk Digital Berhasil Dibuat*\n\n"
-                f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
-                f"\ud83d\udce6 Jumlah Item: {item_count}\n"
-                f"\ud83d\udcb0 Total: Rp {result.get('total')}\n\n"
+                f"✅ *Struk Digital Berhasil Dibuat*\n\n"
+                f"🧾 No. Nota: {result.get('no_nota')}\n"
+                f"📦 Jumlah Item: {item_count}\n"
+                f"💰 Total: Rp {result.get('total')}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
@@ -308,10 +308,10 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
 
                 reply_parts.append(
                     f"{img_label}\n"
-                    f"\u2705 Data Struk Berhasil Disimpan\n"
-                    f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
-                    f"\ud83d\udce6 Item: {item_count}\n"
-                    f"\ud83d\udcb0 Total: Rp {result.get('total')}"
+                    f"✅ Data Struk Berhasil Disimpan\n"
+                    f"🧾 No. Nota: {result.get('no_nota')}\n"
+                    f"📦 Item: {item_count}\n"
+                    f"💰 Total: Rp {result.get('total')}"
                 )
 
                 # Generate and send PDF receipt
@@ -383,10 +383,10 @@ async def _handle_single_image(phone: str, message: dict) -> None:
 
             # Format result for WhatsApp reply
             reply_text = (
-                f"\u2705 *Data Struk Berhasil Disimpan*\n\n"
-                f"\ud83e\uddfe No. Nota: {result.get('no_nota')}\n"
-                f"\ud83d\udce6 Jumlah Item: {item_count}\n"
-                f"\ud83d\udcb0 Total: Rp {result.get('total')}\n\n"
+                f"✅ *Data Struk Berhasil Disimpan*\n\n"
+                f"🧾 No. Nota: {result.get('no_nota')}\n"
+                f"📦 Jumlah Item: {item_count}\n"
+                f"💰 Total: Rp {result.get('total')}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
