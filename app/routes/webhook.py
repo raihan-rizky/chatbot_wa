@@ -217,7 +217,7 @@ async def _handle_struk(phone: str, text: str) -> None:
                 f"🧾 No. Nota: {result.get('no_nota')}\n"
                 f"📦 Jumlah Item: {item_count}\n"
                 f"💰 Total: Rp {result.get('total')}\n\n"
-                "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
+                "_Jika ingin update Google Sheet ketik \spreadsheet._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
 

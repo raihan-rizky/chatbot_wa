@@ -150,14 +150,18 @@ def generate_receipt_pdf(data: dict) -> bytes:
         else:
             fill = False
 
-        # Extract Fields (support both new english keys and old indo keys)
-        name = str(item.get("item_name") or item.get("nama_barang") or "")
+        # Extract Fields (support both new english keys, old indo keys, AND legacy LLM keys)
+        # Priority: item_name > nama_barang > keterangan (LLM uses this as item desc)
+        name = str(item.get("item_name") or item.get("nama_barang") or item.get("keterangan") or "")
         size = str(item.get("size") or item.get("ukuran") or "-")
         material = str(item.get("material") or item.get("bahan") or "-")
         qty = str(item.get("quantity") or item.get("jumlah") or "1")
-        price = _fmt_number(item.get("price_per_item") or item.get("harga_satuan") or 0)
-        total = _fmt_number(item.get("total_price") or item.get("total_harga") or 0)
-        notes = str(item.get("notes") or item.get("keterangan") or "")
+        # Price: price_per_item > harga_satuan > harga (legacy LLM key)
+        price = _fmt_number(item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0)
+        # Total: total_price > total_harga > total (legacy LLM key)
+        total = _fmt_number(item.get("total_price") or item.get("total_harga") or item.get("total") or 0)
+        # Notes: only use "notes" key; don't use "keterangan" here since it's used for item name
+        notes = str(item.get("notes") or "")
 
         # Truncate long text to fit
         name = (name[:22] + '..') if len(name) > 22 else name

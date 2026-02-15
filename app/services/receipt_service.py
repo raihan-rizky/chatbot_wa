@@ -76,14 +76,14 @@ async def save_receipt_items(data: dict) -> bool:
             "transaction_id": transaction_id,
             "transaction_date": transaction_date,
             "customer_name": customer_name,
-            "item_name": item.get("item_name") or item.get("nama_barang") or "Unknown Item",
+            "item_name": item.get("item_name") or item.get("nama_barang") or item.get("keterangan") or "Unknown Item",
             "size": item.get("size") or item.get("ukuran"),
             "material": item.get("material") or item.get("bahan"),
-            "quantity": str(item.get("quantity") or item.get("jumlah_barang") or "1"),
-            "price_per_item": item.get("price_per_item") or item.get("harga_satuan") or 0,
-            "total_price": item.get("total_price") or item.get("total_harga") or 0,
+            "quantity": str(item.get("quantity") or item.get("jumlah_barang") or item.get("jumlah") or "1"),
+            "price_per_item": item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0,
+            "total_price": item.get("total_price") or item.get("total_harga") or item.get("total") or 0,
             "payment_method": payment_method,
-            "notes": item.get("notes") or item.get("keterangan"),
+            "notes": item.get("notes") or "",
         }
         rows.append(row)
 
