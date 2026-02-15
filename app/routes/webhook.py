@@ -12,7 +12,8 @@ from app.config import get_settings
 from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media
-from app.services.whatsapp import send_message
+from app.services.pdf_service import generate_receipt_pdf
+from app.services.whatsapp import send_document, send_message, upload_media
 from app.services.sheets import append_log, append_receipt_data, clear_sheet
 from app.services.chat_history import clear_history
 
@@ -246,6 +247,16 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
                     f"📦 Rincian: Spanduk({spanduk_count}) "
                     f"Percetakan({percetakan_count}) ATK({atk_count})"
                 )
+
+                # Generate and send PDF receipt
+                try:
+                    pdf_bytes = generate_receipt_pdf(result)
+                    nota_id = result.get('no_nota', 'receipt')
+                    pdf_filename = f"Struk_{nota_id}.pdf"
+                    wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
+                    await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
+                except Exception:
+                    logger.error("Failed to send PDF for image %d", i + 1, exc_info=True)
             else:
                 append_log(phone, "assistant", result)
                 reply_parts.append(f"{img_label}\n{result}")
@@ -322,8 +333,20 @@ async def _handle_single_image(phone: str, message: dict) -> None:
             append_log(phone, "assistant", result)
             reply_text = result
 
-        # Send result back via WhatsApp
+        # Send text reply
         await send_message(phone, reply_text)
+
+        # Generate and send PDF if receipt was detected
+        if isinstance(result, dict):
+            try:
+                pdf_bytes = generate_receipt_pdf(result)
+                nota_id = result.get('no_nota', 'receipt')
+                pdf_filename = f"Struk_{nota_id}.pdf"
+                wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
+                await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
+                logger.info("PDF receipt sent to %s", phone)
+            except Exception:
+                logger.error("Failed to send PDF to %s", phone, exc_info=True)
         logger.info("Image analysis sent to %s", phone)
 
     except Exception:
