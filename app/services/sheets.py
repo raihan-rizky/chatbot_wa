@@ -135,3 +135,29 @@ def append_receipt_data(data: dict) -> None:
     except Exception:
         logger.error("Failed to append receipt data", exc_info=True)
 
+
+def clear_sheet() -> bool:
+    """Delete all data rows from the Google Sheet (keeps header row).
+
+    Returns:
+        True if cleared successfully, False otherwise.
+    """
+    sheet = _get_sheet()
+    if sheet is None:
+        return False
+
+    try:
+        row_count = sheet.row_count
+        if row_count <= 1:
+            logger.info("Sheet is already empty (only header row)")
+            return True
+
+        # Delete all rows except the header (row 1)
+        sheet.delete_rows(2, row_count)
+        logger.info("🗑️ Cleared all data rows from Google Sheet")
+        return True
+    except Exception:
+        logger.error("Failed to clear Google Sheet", exc_info=True)
+        return False
+
+

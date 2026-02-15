@@ -13,7 +13,8 @@ from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media
 from app.services.whatsapp import send_message
-from app.services.sheets import append_log, append_receipt_data
+from app.services.sheets import append_log, append_receipt_data, clear_sheet
+from app.services.chat_history import clear_history
 
 logger = logging.getLogger(__name__)
 
@@ -94,10 +95,19 @@ async def receive_message(request: Request):
     return {"status": "ok"}
 
 
+# ── Commands that users can type ─────────────────────────────────
+_RESET_COMMANDS = {"/hapus", "/reset", "/clear"}
+
+
 async def _handle_text(phone: str, message: dict) -> None:
     """Handle a text message — generate AI reply and save to Supabase."""
     text = message["text"]["body"]
     logger.info("Text from %s: %s", phone, text[:80])
+
+    # ── Check for reset command ──────────────────────────────────
+    if text.strip().lower() in _RESET_COMMANDS:
+        await _handle_reset(phone)
+        return
 
     try:
         reply = await get_ai_response(phone, text)
@@ -110,6 +120,52 @@ async def _handle_text(phone: str, message: dict) -> None:
             await send_message(phone, "Maaf, terjadi kesalahan. Coba kirim ulang pesan kamu. 🙏")
         except Exception:
             pass
+
+
+async def _handle_reset(phone: str) -> None:
+    """Delete all chat history (Supabase) and spreadsheet data (Google Sheets)."""
+    logger.info("Reset requested by %s", phone)
+
+    try:
+        # 1. Clear Supabase chat history
+        await clear_history(phone)
+        chat_ok = True
+    except Exception:
+        logger.error("Failed to clear chat history for %s", phone, exc_info=True)
+        chat_ok = False
+
+    # 2. Clear Google Sheets data
+    sheet_ok = clear_sheet()
+
+    # 3. Send confirmation
+    if chat_ok and sheet_ok:
+        reply = (
+            "✅ *Semua data berhasil dihapus!*\n\n"
+            "💬 Riwayat chat — dihapus\n"
+            "📊 Data spreadsheet — dihapus\n\n"
+            "Silakan mulai percakapan baru. 👋"
+        )
+    elif chat_ok:
+        reply = (
+            "⚠️ *Sebagian data dihapus*\n\n"
+            "💬 Riwayat chat — dihapus\n"
+            "❌ Data spreadsheet — gagal dihapus\n\n"
+            "Coba kirim /hapus lagi nanti."
+        )
+    elif sheet_ok:
+        reply = (
+            "⚠️ *Sebagian data dihapus*\n\n"
+            "❌ Riwayat chat — gagal dihapus\n"
+            "📊 Data spreadsheet — dihapus\n\n"
+            "Coba kirim /hapus lagi nanti."
+        )
+    else:
+        reply = (
+            "❌ *Gagal menghapus data*\n\n"
+            "Terjadi kesalahan saat menghapus. Coba lagi nanti. 🙏"
+        )
+
+    await send_message(phone, reply)
 
 
 async def _handle_images(phone: str, messages: list[dict]) -> None:
