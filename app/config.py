@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     # ── App ──────────────────────────────────────────────────────
     max_history_length: int = 20  # max messages kept per user
+    max_images_per_request: int = 5  # max images processed per webhook batch
 
 
 @lru_cache

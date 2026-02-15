@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import traceback
 
@@ -58,6 +59,9 @@ async def receive_message(request: Request):
                 if "messages" not in value:
                     continue
 
+                # Collect images per sender for batch processing
+                sender_images: dict[str, list[dict]] = {}
+
                 for message in value["messages"]:
                     msg_id = message.get("id", "")
                     sender = message["from"]
@@ -76,9 +80,13 @@ async def receive_message(request: Request):
                     if msg_type == "text":
                         await _handle_text(sender, message)
                     elif msg_type == "image":
-                        await _handle_image(sender, message)
+                        sender_images.setdefault(sender, []).append(message)
                     else:
                         logger.info("Skipping unsupported type=%s", msg_type)
+
+                # Process batched images per sender
+                for sender, images in sender_images.items():
+                    await _handle_images(sender, images)
 
     except Exception:
         logger.error("Error processing webhook:\n%s", traceback.format_exc())
@@ -104,8 +112,114 @@ async def _handle_text(phone: str, message: dict) -> None:
             pass
 
 
-async def _handle_image(phone: str, message: dict) -> None:
-    """Handle an image message — download, OCR, extract info, save to Supabase."""
+async def _handle_images(phone: str, messages: list[dict]) -> None:
+    """Handle one or more image messages from the same sender.
+
+    Features:
+        - Rate limiting: enforces max_images_per_request
+        - Concurrent downloads: fetches all media in parallel
+        - Individual analysis: each image analyzed separately (receipts need own JSON)
+        - Each receipt logged to Google Sheets individually
+        - Consolidated reply: one WhatsApp message combining all results
+    """
+    settings = get_settings()
+    max_images = settings.max_images_per_request
+
+    # ── Rate limiting ────────────────────────────────────────────
+    if len(messages) > max_images:
+        logger.warning(
+            "User %s sent %d images, capping to %d", phone, len(messages), max_images
+        )
+        await send_message(
+            phone,
+            f"⚠️ Maksimal {max_images} gambar sekaligus ya. "
+            f"Hanya {max_images} gambar pertama yang akan diproses.",
+        )
+        messages = messages[:max_images]
+
+    # ── Single image fast path ───────────────────────────────────
+    if len(messages) == 1:
+        await _handle_single_image(phone, messages[0])
+        return
+
+    # ── Multi-image processing ───────────────────────────────────
+    media_ids = [msg["image"]["id"] for msg in messages]
+    captions = [msg.get("image", {}).get("caption") for msg in messages]
+
+    logger.info("Batch processing %d images from %s", len(messages), phone)
+
+    try:
+        # Save user messages to Supabase
+        for i, media_id in enumerate(media_ids):
+            user_content = captions[i] if captions[i] else f"[Gambar {i + 1} dikirim]"
+            await save_message(phone, "user", user_content, image_url=f"wa_media:{media_id}")
+
+        # Concurrent downloads
+        download_tasks = [download_wa_media(mid) for mid in media_ids]
+        download_results = await asyncio.gather(*download_tasks, return_exceptions=True)
+
+        # Analyze each image individually and collect results
+        reply_parts: list[str] = []
+        for i, dl_result in enumerate(download_results):
+            img_label = f"📷 *Gambar {i + 1}:*"
+
+            if isinstance(dl_result, Exception):
+                logger.error(
+                    "Failed to download image %d (media_id=%s): %s",
+                    i + 1, media_ids[i], dl_result,
+                )
+                reply_parts.append(f"{img_label}\n⚠️ Gagal mengunduh gambar ini.")
+                continue
+
+            # Analyze with vision model
+            result = await analyze_image(dl_result, captions[i])
+
+            # Log to Google Sheets & format reply
+            if isinstance(result, dict):
+                append_receipt_data(result)
+
+                spanduk_count = len(result.get("spanduk_items", []))
+                percetakan_count = len(result.get("percetakan_items", []))
+                atk_count = len(result.get("atk_items", []))
+
+                reply_parts.append(
+                    f"{img_label}\n"
+                    f"✅ Data Struk Berhasil Disimpan\n"
+                    f"🧾 No. Nota: {result.get('no_nota')}\n"
+                    f"💰 Total: {result.get('total')}\n"
+                    f"📦 Rincian: Spanduk({spanduk_count}) "
+                    f"Percetakan({percetakan_count}) ATK({atk_count})"
+                )
+            else:
+                append_log(phone, "assistant", result)
+                reply_parts.append(f"{img_label}\n{result}")
+
+        # Build consolidated reply
+        consolidated = "\n\n".join(reply_parts)
+
+        # Add sheet link if any receipt was found
+        has_receipt = any("Data Struk" in part for part in reply_parts)
+        if has_receipt:
+            consolidated += (
+                "\n\n_Cek Google Sheet dibawah untuk detail lengkap._ \n"
+                "https://bit.ly/ExcelTeladanAI"
+            )
+
+        # Save AI response & send one consolidated reply
+        await save_message(phone, "assistant", consolidated)
+        await send_message(phone, consolidated)
+        logger.info("Batch analysis sent to %s (%d images)", phone, len(messages))
+
+    except Exception:
+        logger.error("Failed to batch-process images from %s:\n%s", phone, traceback.format_exc())
+        try:
+            await send_message(phone, "Maaf, gagal memproses gambar. Coba kirim ulang. 🙏")
+        except Exception:
+            pass
+
+
+async def _handle_single_image(phone: str, message: dict) -> None:
+    """Handle a single image message — download, OCR, extract info, save to Supabase."""
     media_id = message["image"]["id"]
     caption = message.get("image", {}).get("caption")
 
@@ -130,7 +244,7 @@ async def _handle_image(phone: str, message: dict) -> None:
         # Log to Google Sheets
         if isinstance(result, dict):
             append_receipt_data(result)
-            
+
             # Calculate counts
             spanduk_count = len(result.get('spanduk_items', []))
             percetakan_count = len(result.get('percetakan_items', []))
