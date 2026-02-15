@@ -11,7 +11,7 @@ from fastapi import APIRouter, Query, Request, Response
 from app.config import get_settings
 from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
-from app.services.image_service import analyze_image, download_wa_media
+from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
 from app.services.sheets import append_log, append_receipt_data, clear_sheet
@@ -105,9 +105,15 @@ async def _handle_text(phone: str, message: dict) -> None:
     text = message["text"]["body"]
     logger.info("Text from %s: %s", phone, text[:80])
 
-    # ── Check for reset command ──────────────────────────────────
-    if text.strip().lower() in _RESET_COMMANDS:
+    # ── Check for commands ────────────────────────────────────────
+    stripped = text.strip()
+    if stripped.lower() in _RESET_COMMANDS:
         await _handle_reset(phone)
+        return
+
+    if stripped.lower().startswith("/struk"):
+        receipt_text = stripped[6:].strip()  # text after "/struk"
+        await _handle_struk(phone, receipt_text)
         return
 
     try:
@@ -167,6 +173,74 @@ async def _handle_reset(phone: str) -> None:
         )
 
     await send_message(phone, reply)
+
+
+async def _handle_struk(phone: str, text: str) -> None:
+    """Convert user-typed text into a digital receipt PDF and send it back."""
+    logger.info("Struk command from %s: %s", phone, text[:80])
+
+    if not text:
+        await send_message(
+            phone,
+            "📝 *Cara pakai /struk:*\n\n"
+            "Ketik data struk setelah /struk, contoh:\n"
+            "/struk Nota 123, Spanduk 2x3m 50000, Pulpen 2pcs 10000, total 60000",
+        )
+        return
+
+    try:
+        # Save user message
+        await save_message(phone, "user", f"/struk {text}")
+
+        # Parse text into receipt JSON via LLM
+        result = await parse_text_to_receipt(text)
+
+        if isinstance(result, dict):
+            # Log to Google Sheets
+            append_receipt_data(result)
+
+            # Calculate counts
+            spanduk_count = len(result.get("spanduk_items", []))
+            percetakan_count = len(result.get("percetakan_items", []))
+            atk_count = len(result.get("atk_items", []))
+
+            # Text summary
+            reply_text = (
+                f"✅ *Struk Digital Berhasil Dibuat*\n\n"
+                f"🧾 No. Nota: {result.get('no_nota')}\n"
+                f"💰 Total: {result.get('total')}\n\n"
+                f"📦 *Rincian Item:*\n"
+                f"- Spanduk: {spanduk_count}\n"
+                f"- Percetakan: {percetakan_count}\n"
+                f"- ATK: {atk_count}\n\n"
+                "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
+                "https://bit.ly/ExcelTeladanAI"
+            )
+
+            await save_message(phone, "assistant", reply_text)
+            await send_message(phone, reply_text)
+
+            # Generate and send PDF
+            try:
+                pdf_bytes = generate_receipt_pdf(result)
+                nota_id = result.get("no_nota", "receipt")
+                pdf_filename = f"Struk_{nota_id}.pdf"
+                wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
+                await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
+                logger.info("Struk PDF sent to %s", phone)
+            except Exception:
+                logger.error("Failed to send struk PDF to %s", phone, exc_info=True)
+        else:
+            # LLM returned plain text (parsing failed)
+            await save_message(phone, "assistant", result)
+            await send_message(phone, result)
+
+    except Exception:
+        logger.error("Failed /struk for %s:\n%s", phone, traceback.format_exc())
+        try:
+            await send_message(phone, "Maaf, gagal membuat struk digital. Coba lagi. 🙏")
+        except Exception:
+            pass
 
 
 async def _handle_images(phone: str, messages: list[dict]) -> None:
