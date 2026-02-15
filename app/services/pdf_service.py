@@ -67,9 +67,9 @@ def generate_receipt_pdf(data: dict) -> bytes:
 
     # ── Item categories ──────────────────────────────────────────
     categories = [
-        ("🔹 SPANDUK", data.get("spanduk_items", [])),
-        ("🔹 PERCETAKAN", data.get("percetakan_items", [])),
-        ("🔹 ATK", data.get("atk_items", [])),
+        ("SPANDUK", data.get("spanduk_items", [])),
+        ("PERCETAKAN", data.get("percetakan_items", [])),
+        ("ATK", data.get("atk_items", [])),
     ]
 
     for cat_name, items in categories:
