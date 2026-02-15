@@ -14,8 +14,9 @@ from app.services.chat_history import save_message
 from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
-from app.services.sheets import append_log, append_receipt_data, clear_sheet
+from app.services.sheets import append_log, append_receipt_data, clear_sheet, overwrite_receipt_data
 from app.services.chat_history import clear_history
+from app.services.receipt_service import save_receipt_items, get_todays_receipts
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,7 @@ async def receive_message(request: Request):
 
 # ── Commands that users can type ─────────────────────────────────
 _RESET_COMMANDS = {"/hapus", "/reset", "/clear"}
+_SYNC_COMMANDS = {"/spreadsheet", "/sync", "/excel"}
 
 
 async def _handle_text(phone: str, message: dict) -> None:
@@ -109,6 +111,10 @@ async def _handle_text(phone: str, message: dict) -> None:
     stripped = text.strip()
     if stripped.lower() in _RESET_COMMANDS:
         await _handle_reset(phone)
+        return
+
+    if stripped.lower() in _SYNC_COMMANDS:
+        await _handle_sync(phone)
         return
 
     if stripped.lower().startswith("/struk"):
@@ -196,8 +202,11 @@ async def _handle_struk(phone: str, text: str) -> None:
         result = await parse_text_to_receipt(text)
 
         if isinstance(result, dict):
-            # Log to Google Sheets
-            append_receipt_data(result)
+            # 1. Save to Supabase (Primary)
+            await save_receipt_items(result)
+
+            # NOTE: Auto-save to Google Sheets is DISABLED.
+            # Use /spreadsheet command to sync.
 
             # Item count
             item_count = len(result.get("items", []))
@@ -302,7 +311,10 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
 
             # Log to Google Sheets & format reply
             if isinstance(result, dict):
-                append_receipt_data(result)
+                # 1. Save to Supabase (Primary)
+                await save_receipt_items(result)
+
+                # NOTE: Auto-save to Sheets DISABLED. Use /spreadsheet to sync.
 
                 item_count = len(result.get("items", []))
 
@@ -376,7 +388,10 @@ async def _handle_single_image(phone: str, message: dict) -> None:
 
         # Log to Google Sheets
         if isinstance(result, dict):
-            append_receipt_data(result)
+            # 1. Save to Supabase (Primary)
+            await save_receipt_items(result)
+
+            # NOTE: Auto-save to Sheets DISABLED. Use /spreadsheet to sync.
 
             # Item count
             item_count = len(result.get('items', []))

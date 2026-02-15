@@ -167,4 +167,70 @@ def clear_sheet() -> bool:
         logger.error("Failed to clear Google Sheet", exc_info=True)
         return False
 
+        return False
 
+
+def overwrite_receipt_data(rows_data: list[dict]) -> bool:
+    """
+    Clear the sheet (maintain headers) and write a fresh batch of rows.
+    
+    Args:
+        rows_data: List of dicts from Supabase (receipts_teladan table).
+    """
+    sheet = _get_sheet()
+    if sheet is None:
+        return False
+
+    try:
+        # 1. Clear existing data (keep header row 1)
+        # Using clear() then re-adding headers or resize is one way.
+        # Safer: clear range A2:Z10000
+        sheet.batch_clear(["A2:L10000"])  # Assume max 12 cols, 10k rows for daily
+        
+        if not rows_data:
+            logger.info("No data to write to sheet (empty list)")
+            return True
+
+        # 2. Ensure headers exist
+        if not sheet.acell('A1').value:
+            headers = [
+                "ID Transaksi", "Tanggal", "Pelanggan", 
+                "Nama Barang", "Ukuran", "Bahan", 
+                "Jumlah", "Harga Satuan", "Total Harga", 
+                "Metode Bayar", "Keterangan"
+            ]
+            sheet.update(range_name="A1:K1", values=[headers])
+
+        # 3. Format data for writing
+        # Map Supabase columns to Sheet columns
+        # Sheet Cols: 
+        # A: ID, B: Date, C: Customer, D: Item, E: Size, F: Material, 
+        # G: Qty, H: Price, I: Total, J: Payment, K: Notes
+        
+        values = []
+        for r in rows_data:
+            row = [
+                r.get("transaction_id", ""),
+                r.get("transaction_date", "")[:19].replace("T", " "), # Format ISO string
+                r.get("customer_name", ""),
+                r.get("item_name", ""),
+                r.get("size", ""),
+                r.get("material", ""),
+                r.get("quantity", ""),
+                r.get("price_per_item", 0),
+                r.get("total_price", 0),
+                r.get("payment_method", ""),
+                r.get("notes", "")
+            ]
+            values.append(row)
+
+        # 4. Write all rows in one batch
+        # Determine range, e.g. A2:K(len+1)
+        sheet.update(range_name=f"A2:K{len(values) + 1}", values=values)
+        
+        logger.info("✅ Overwrote sheet with %d rows", len(values))
+        return True
+
+    except Exception:
+        logger.error("Failed to overwrite sheet", exc_info=True)
+        return False
