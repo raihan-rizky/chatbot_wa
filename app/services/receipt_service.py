@@ -111,6 +111,45 @@ async def save_receipt_items(data: dict) -> bool:
             return False
 
 
+async def _get_last_transaction_id() -> str | None:
+    """Fetch the most recent transaction_id from Supabase."""
+    params = {
+        "order": "created_at.desc",
+        "limit": 1,
+        "select": "transaction_id"
+    }
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(_base_url(), headers=_headers(), params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if data and len(data) > 0:
+                return data[0].get("transaction_id")
+            return None
+        except Exception:
+            logger.warning("Failed to fetch last transaction ID", exc_info=True)
+            return None
+
+
+async def generate_next_transaction_id() -> str:
+    """Generate next ID format 'AB-XXX'. Defaults to 'AB-001' if no previous ID."""
+    last_id = await _get_last_transaction_id()
+    
+    prefix = "AB-"
+    next_num = 1
+    
+    if last_id and last_id.startswith(prefix):
+        try:
+            # Extract number part: AB-970 -> 970
+            num_part = last_id.replace(prefix, "")
+            next_num = int(num_part) + 1
+        except ValueError:
+            pass # Keep default 1 if parsing fails
+            
+    return f"{prefix}{next_num:03d}" # e.g. AB-001, AB-971
+
+
 async def get_todays_receipts() -> list[dict]:
     """Fetch all receipt items for the current day (server time)."""
     today_str = datetime.now().strftime("%Y-%m-%d")
