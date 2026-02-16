@@ -88,7 +88,7 @@ Rules:
    Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
    Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
 10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp" or "down_payment": "0".
-    Example: "DP: 100000" means "down_payment": "100000".
+    Example: "DP: 100000" means down_payment = "100000".
 
 """
 
