@@ -49,7 +49,7 @@ class ReceiptPDF(FPDF):
         self.cell(150, 7, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
 
         # Move below header block
-        self.set_y(20)
+        self.set_y(25)
 
         # Divider
         self.set_draw_color(180, 0, 0)
@@ -226,14 +226,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
 
     # ── DP & Sisa ────────────────────────────────────────────────
     dp_val = _parse_num(data.get("dp", 0))
-
-    # Rule: If DP > Grand Total, reset DP to 0 (logical error prevention)
-    if dp_val > computed_grand_total:
-        logger.warning("DP (%d) > Total (%d), resetting DP to 0", dp_val, computed_grand_total)
-        dp_val = 0
-
     sisa_val = computed_grand_total - dp_val
-    logger.info("PDF Calc: Total=%d, DP=%d, Sisa=%d", computed_grand_total, dp_val, sisa_val)
 
     # Row DP
     pdf.cell(offset, 10, "DP", align="R")
