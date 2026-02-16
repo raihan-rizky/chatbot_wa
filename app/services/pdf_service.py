@@ -40,9 +40,9 @@ class ReceiptPDF(FPDF):
             pass
 
         # Store name next to logo
-        self.set_xy(30, 7)
+        self.set_xy(15, 7)
         self.set_font("Helvetica", "B", 14)
-        self.cell(100, 6, "Toko Teladan", align="L")
+        self.cell(80, 6, "Toko Teladan", align="L")
 
         # Address line below store name
         self.set_xy(30, 13)
