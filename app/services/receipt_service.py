@@ -11,6 +11,7 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 TABLE = "receipts_teladan"
+PRODUCTS_TABLE = "products_teladan"
 
 
 def _headers() -> dict[str, str]:
@@ -27,6 +28,11 @@ def _headers() -> dict[str, str]:
 def _base_url() -> str:
     settings = get_settings()
     return f"{settings.supabase_url}/rest/v1/{TABLE}"
+
+
+def _products_url() -> str:
+    settings = get_settings()
+    return f"{settings.supabase_url}/rest/v1/{PRODUCTS_TABLE}"
 
 
 async def save_receipt_items(data: dict) -> bool:
@@ -170,3 +176,23 @@ async def get_todays_receipts() -> list[dict]:
         except Exception:
             logger.exception("Failed to fetch today's receipts from Supabase")
             return []
+
+
+async def get_product_by_code(code: str) -> dict | None:
+    """Fetch product details by unique code (e.g. 'SP', 'BN')."""
+    params = {
+        "code": f"eq.{code}",
+        "select": "*"
+    }
+    
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.get(_products_url(), headers=_headers(), params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if data and len(data) > 0:
+                return data[0]
+            return None
+        except Exception:
+            logger.warning("Failed to fetch product code %s", code, exc_info=True)
+            return None

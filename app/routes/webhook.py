@@ -16,7 +16,7 @@ from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
 from app.services.sheets import append_log, append_receipt_data, clear_sheet, overwrite_receipt_data
 from app.services.chat_history import clear_history
-from app.services.receipt_service import save_receipt_items, get_todays_receipts, generate_next_transaction_id
+from app.services.receipt_service import save_receipt_items, get_todays_receipts, generate_next_transaction_id, get_product_by_code
 
 import re
 
@@ -216,8 +216,27 @@ async def _handle_struk(phone: str, text: str) -> None:
         return
 
     try:
+        # Pre-process text: generic lookup for product codes
+        # Split text by words and check if any word matches a product code
+        words = text.split()
+        refined_words = []
+        
+        for word in words:
+            # clean punctuation
+            clean_word = word.strip(",.-").upper()
+            product = await get_product_by_code(clean_word)
+            if product:
+                # Replace code with full details: "Name (Rp Price)"
+                # This guides the LLM to use the correct name and unit price
+                refined_words.append(f'{product["name"]} (Rp {product["price"]})')
+            else:
+                refined_words.append(word)
+        
+        refined_text = " ".join(refined_words)
+        logger.info("Refined text for LLM: %s", refined_text)
+
         # Parse text into receipt JSON via LLM (stateless, no chat history)
-        result = await parse_text_to_receipt(text)
+        result = await parse_text_to_receipt(refined_text)
 
         if isinstance(result, dict):
             # Auto-generate transaction ID if LLM couldn't extract one
