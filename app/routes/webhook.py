@@ -121,6 +121,7 @@ async def receive_message(request: Request):
 # ── Commands that users can type ─────────────────────────────────
 _RESET_COMMANDS = {"/hapus", "/reset", "/clear"}
 _SYNC_COMMANDS = {"/spreadsheet", "/sync", "/excel"}
+_HELP_COMMANDS = {"/help", "/bantuan", "/guide", "/panduan"}
 
 # ── Welcome guide for first-time users ────────────────────────────
 _WELCOME_GUIDE = (
@@ -134,14 +135,18 @@ _WELCOME_GUIDE = (
     "1. SPF-280 3x1m 10pcs mata ayam per 50cm\n"
     "2. SPF-340 2x1m 5pcs polos\n"
     "3. SPF-510 4x2m 1pcs selongsong atas bawah\n"
-    "DP 50000\n"
+    "DP 50000 QRIS\n"
     "```\n\n"
     "📊 */spreadsheet* — Sinkronisasi data ke Google Sheet\n"
     "🗑️ */hapus* — Hapus semua riwayat chat & data\n\n"
     "🖨️ *Kode Produk:*\n"
     "• SPF-280 = Flexi 280gr (China)\n"
     "• SPF-340 = Flexi 340gr (Korea)\n"
-    "• SPF-510 = Flexi 510gr (Jerman)\n\n"
+    "• SPF-510 = Flexi 510gr (Jerman)\n"
+    "• SP-PVC = Cetak PVC Rigid \n"
+    "• SP-LUS = Cetak Luster \n"
+    "• ST-VIN = Cetak Stiker Vinyl \n"
+    "• ST-ONE = Cetak Stiker One Way Vision \n\n"
     "📸 Kamu juga bisa kirim *foto struk* dan saya akan membacanya otomatis!\n\n"
     "Silakan kirim pesan atau perintah untuk memulai. 😊"
 )
@@ -162,6 +167,12 @@ async def _handle_text(phone: str, message: dict) -> None:
 
     # ── Check for commands ────────────────────────────────────────
     stripped = text.strip()
+
+    if stripped.lower() in _HELP_COMMANDS:
+        await send_message(phone, _WELCOME_GUIDE)
+        logger.info("Sent help guide to %s", phone)
+        return
+
     if stripped.lower() in _RESET_COMMANDS:
         await _handle_reset(phone)
         return
@@ -191,6 +202,7 @@ async def _handle_text(phone: str, message: dict) -> None:
 async def _handle_reset(phone: str) -> None:
     """Delete all chat history (Supabase) and spreadsheet data (Google Sheets)."""
     logger.info("Reset requested by %s", phone)
+    await send_message(phone, "🔄 *Permintaan diterima.* Sedang menghapus data...")
 
     try:
         # 1. Clear Supabase chat history
@@ -237,6 +249,7 @@ async def _handle_reset(phone: str) -> None:
 async def _handle_sync(phone: str) -> None:
     """Fetch today's receipts from Supabase and overwrite Google Sheet."""
     logger.info("Sync to spreadsheet requested by %s", phone)
+    await send_message(phone, "🔄 *Permintaan diterima.* Sedang sinkronisasi ke Google Sheet...")
 
     try:
         # 1. Fetch today's receipts from Supabase
@@ -267,6 +280,7 @@ async def _handle_sync(phone: str) -> None:
 async def _handle_struk(phone: str, text: str) -> None:
     """Convert user-typed text into a digital receipt PDF and send it back."""
     logger.info("Struk command from %s: %s", phone, text[:80])
+    await send_message(phone, "🔄 *Permintaan diterima.* Struk digital sedang dibuat...")
 
     if not text:
         await send_message(
