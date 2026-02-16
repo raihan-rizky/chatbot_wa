@@ -17,9 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_products_code ON products_teladan (code);
 -- Insert initial sample data (Banner & Large Format)
 INSERT INTO products_teladan (code, name, unit, price, category) VALUES
 -- Outdoor Materials
-('SPF-280', 'Cetak Spanduk Flexi 280gr', 'm2', 25000, 'Outdoor'),
-('SPF-340', 'Cetak Spanduk Flexi 340gr (High Res)', 'm2', 45000, 'Outdoor'),
-('SPF-440', 'Cetak Spanduk Flexi 440gr (Korea)', 'm2', 85000, 'Outdoor'),
+('SPF-280', 'Cetak Spanduk Flexi 280gr (China)', 'm2', 25000, 'Outdoor'),
+('SPF-340', 'Cetak Spanduk Flexi 340gr (Korea)', 'm2', 45000, 'Outdoor'),
+('SPF-510', 'Cetak Spanduk Flexi 510gr (Jerman)', 'm2', 85000, 'Outdoor'),
 
 -- Indoor / High Quality Materials
 ('SPA', 'Cetak Albatros', 'm2', 105000, 'Indoor'),

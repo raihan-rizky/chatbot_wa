@@ -86,6 +86,12 @@ Rules:
 7. If unit price is unclear but total is known, set price_per_item = total_price.
 8. If a text field is missing, use "Tidak Diketahui". If a numeric field is missing, use "0".
 
+MATERIAL ALIAS MAPPING (CRITICAL):
+- "Flexi Korea" or "Korea" → material="Flexi 340gr", item_name="Spanduk" (product code: SPF-340)
+- "Flexi China" or "China" → material="Flexi 280gr", item_name="Spanduk" (product code: SPF-280)
+- "Flexi Jerman" or "Jerman" → material="Flexi 510gr", item_name="Spanduk" (product code: SPF-510)
+When the user mentions these material names, use the corresponding material description above.
+
 DOWN PAYMENT RULES (CRITICAL):
 9. "down_payment" is a TOP-LEVEL field, NOT inside items.
 10. Look for keywords: "DP", "dp", "Uang Muka", "Down Payment", "Bayar Dulu".

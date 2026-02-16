@@ -196,9 +196,9 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
             headers = [
                 "Transaction ID", "Date", "Customer",
                 "No", "Item Name", "Size", "Material",
-                "Qty", "Price", "Total", "Notes"
+                "Qty", "Price", "Total", "Notes", "Down Payment"
             ]
-            sheet.update(range_name="A1:K1", values=[headers])
+            sheet.update(range_name="A1:L1", values=[headers])
 
         # 3. Format data for writing
         # Map Supabase columns to Sheet columns
@@ -226,7 +226,7 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
             values.append(row)
 
         # 4. Write all rows in one batch
-        sheet.update(range_name=f"A2:K{len(values) + 1}", values=values)
+        sheet.update(range_name=f"A2:L{len(values) + 1}", values=values)
         
         logger.info("✅ Overwrote sheet with %d rows", len(values))
         return True
