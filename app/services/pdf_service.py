@@ -33,36 +33,29 @@ class ReceiptPDF(FPDF):
     """Custom PDF layout matching the Media Stationery receipt template."""
 
     def header(self):
-        # Logo
-        # Try-except block to handle missing logo gracefully
+        # Logo + Store info side by side
         try:
-            # 25mm width, starting at x=10, y=8
-            self.image("app/public/images/toko_teladan-logo.png", 10, 8, 25)
+            self.image("app/public/images/toko_teladan-logo.png", 10, 6, 18)
         except Exception:
-            # Fallback if logo missing: just print text or leave blank space
             pass
 
-        # Address / Header Text (Below Logo)
-        # Logo ends at y=33 (8+25). Start text at y=35.
-        self.set_y(35)
-        
-        self.set_font("Helvetica", "B", 16)
+        # Store info next to logo
+        self.set_xy(30, 6)
+        self.set_font("Helvetica", "B", 14)
         self.cell(0, 5, "Toko Teladan", new_x="LMARGIN", new_y="NEXT", align="L")
-        
-        self.set_font("Helvetica", "", 8)
+        self.set_x(30)
+        self.set_font("Helvetica", "", 7)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 4, "Jl. Temu Putih No.30 Cilegon", new_x="LMARGIN", new_y="NEXT", align="L")
-        self.cell(0, 4, "Telp: 0254 393022 Fax: 389079", new_x="LMARGIN", new_y="NEXT", align="L")
-        self.cell(0, 4, "Email : tokoteladancv@gmail.com", new_x="LMARGIN", new_y="NEXT", align="L")
-        
-        self.ln(2)
+        self.cell(0, 3, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", new_x="LMARGIN", new_y="NEXT", align="L")
+
+        self.ln(1)
 
         # Divider
         self.set_draw_color(180, 0, 0)
         self.set_line_width(0.8)
         self.line(10, self.get_y(), 200, self.get_y())
         self.set_line_width(0.2)
-        self.ln(4)
+        self.ln(2)
 
     def footer(self):
         self.set_y(-15)
