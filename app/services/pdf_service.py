@@ -54,11 +54,14 @@ class ReceiptPDF(FPDF):
         self.set_line_width(0.2)
         self.ln(2)
 
+    """ 
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, "Dokumen ini dibuat secara otomatis oleh Teladan AI", align="C")
+        
+    """
 
 
 def _parse_num(value: str | int | float) -> float:
