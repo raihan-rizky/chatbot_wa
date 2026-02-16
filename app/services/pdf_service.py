@@ -224,20 +224,6 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf.set_fill_color(200, 200, 200)
     pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(computed_grand_total)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
 
-    # ── DP & Sisa ────────────────────────────────────────────────
-    dp_val = _parse_num(data.get("dp", 0))
-    sisa_val = computed_grand_total - dp_val
-
-    # Row DP
-    pdf.cell(offset, 10, "DP", align="R")
-    pdf.set_fill_color(255, 255, 255)  # White bg for DP
-    pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(dp_val)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
-
-    # Row SISA
-    pdf.cell(offset, 10, "SISA", align="R")
-    pdf.set_fill_color(255, 255, 255)
-    pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(sisa_val)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
-
     # ── Output as bytes ──────────────────────────────────────────
     buffer = io.BytesIO()
     pdf.output(buffer)

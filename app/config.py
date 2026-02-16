@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     nebius_api_key: str
     nebius_model: str = "Qwen/Qwen3-14B"
     nebius_vision_model: str = "Qwen/Qwen2.5-VL-72B-Instruct"
-    nebius_fast_model: str = "meta-llama/Meta-Llama-3.1-8B-Instruct-fast"
 
     # ── WhatsApp Cloud API ───────────────────────────────────────
     whatsapp_access_token: str
