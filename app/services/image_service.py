@@ -48,47 +48,86 @@ def _get_llm() -> ChatNebius:
 
 
 # ── Receipt extraction prompt ───────────────────────────────────
-RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant.
-Your task is to extract data from shopping receipts or user input text into STRICT JSON format.
+RECEIPT_SYSTEM_PROMPT = """You are an expert data-extraction assistant for a printing & stationery shop.
+Extract receipt or order data from images or user text into STRICT JSON.
 
-JSON Schema:
+JSON Schema (use these EXACT key names):
 {
-  "no_nota": "Receipt/transaction ID or 'Tidak Diketahui'",
+  "no_nota": "Receipt/transaction ID, or 'Tidak Diketahui' if unknown",
   "customer_name": "Customer name or null",
   "transaction_date": "Date in YYYY-MM-DD format or null",
-  "payment_method": "Cash/Transfer/QR or null",
+  "payment_method": "Cash / Transfer / QR or null",
+  "down_payment": "Down Payment amount as NUMERIC STRING (e.g. '100000'). Default '0'.",
   "items": [
     {
-      "nama_barang": "Item name ONLY, without size or material (e.g. 'Spanduk', 'Stiker', 'Pulpen', 'Banner')",
-      "ukuran": "Size/dimension MUST be extracted separately (e.g. '2x3m', 'A3+', 'A4', '5x1m'). NEVER put this in nama_barang.",
-      "bahan": "Material/media MUST be extracted separately (e.g. 'Flexi', 'Vinyl', 'HVS', 'Albatros', 'Korea'). NEVER put this in nama_barang.",
-      "jumlah": "Quantity as string (e.g. '2 pcs', '1 lbr', '3 rim')",
-      "harga": "UNIT price PER ITEM as numeric string (e.g. '50000'). This is ALWAYS the price for ONE piece.",
-      "total": "Line total = jumlah x harga (e.g. if jumlah=2 and harga=150000, then total='300000')",
-      "keterangan": "Extra notes/remarks ONLY (e.g. 'finishing laminasi', 'mata ayam', 'cutting bulat') or null. Do NOT put the item name here."
+      "item_name": "Item name ONLY — no size, no material (e.g. 'Spanduk', 'Banner', 'Pulpen')",
+      "size": "Size/dimension as separate field (e.g. '2x3m', 'A3+', 'A4', '5x1m') or null",
+      "material": "Material/media as separate field (e.g. 'Flexi', 'Vinyl', 'HVS', 'Korea') or null",
+      "quantity": "Quantity as string with unit (e.g. '2 pcs', '1 lbr', '3 rim'). Default '1'.",
+      "price_per_item": "UNIT price for ONE piece as numeric string (e.g. '50000')",
+      "total_price": "Line total = quantity × price_per_item (e.g. '300000')",
+      "notes": "Extra remarks ONLY (e.g. 'laminasi', 'mata ayam'). NOT the item name. null if none."
     }
   ],
-  "total": "Grand total amount as numeric string or '0'"
-  "down_payment": "Down Payment (DP) amount as numeric string or '0'"
+  "total": "Grand total (sum of all total_price) as numeric string or '0'"
 }
 
 Rules:
-1. Output MUST be valid JSON only. Do not add markdown blocks like ```json.
-2. Each item must have nama_barang, jumlah, harga, and total.
-3. "keterangan" is ONLY for extra finishing/processing notes, NOT the item name.
-4. If quantity is unclear, default to "1".
-5. If unit price is unclear but total is known, set harga = total.
-6. If a field is missing, use "Tidak Diketahui" for text or "0" for amounts.
-7. Do not include any conversational text.
-8. CRITICAL: "ukuran" and "bahan" MUST be extracted as SEPARATE fields. Do NOT combine them into "nama_barang".
-   Example: "Spanduk 2x3m Flexi" should become: nama_barang="Spanduk", ukuran="2x3m", bahan="Flexi".
-   Example: "Banner 5x1 Korea" should become: nama_barang="Banner", ukuran="5x1m", bahan="Korea".
-9. CRITICAL: "harga" is ALWAYS the price PER SINGLE ITEM. The number the user writes next to the item is the UNIT PRICE, never the line total.
-   Do NOT divide the price by quantity. The total is calculated as jumlah x harga.
-   Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
-   Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
-10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp" or down_payment="0".
-    Example: "DP: 100000" means down_payment="100000".
+1. Output valid JSON ONLY. No markdown, no commentary, no ```json blocks.
+2. Every item MUST have: item_name, quantity, price_per_item, total_price.
+3. SEPARATE FIELDS: "size" and "material" MUST be their own fields. NEVER put them in "item_name".
+   "Spanduk 2x3m Flexi" → item_name="Spanduk", size="2x3m", material="Flexi"
+   "Banner 5x1 Korea"   → item_name="Banner", size="5x1m", material="Korea"
+4. UNIT PRICE: "price_per_item" is ALWAYS the price for ONE piece. Do NOT divide by quantity.
+   "Spanduk 2pcs 150000" → price_per_item="150000", total_price="300000" (2×150000)
+   "Pulpen 5pcs 10000"   → price_per_item="10000", total_price="50000" (5×10000)
+5. "notes" is ONLY for finishing/processing remarks, NOT the item name.
+6. If quantity is unclear, default to "1".
+7. If unit price is unclear but total is known, set price_per_item = total_price.
+8. If a text field is missing, use "Tidak Diketahui". If a numeric field is missing, use "0".
+
+DOWN PAYMENT RULES (CRITICAL):
+9. "down_payment" is a TOP-LEVEL field, NOT inside items.
+10. Look for keywords: "DP", "dp", "Uang Muka", "Down Payment", "Bayar Dulu".
+11. Extract the numeric amount and place it in the top-level "down_payment" field.
+12. If NO down payment is mentioned, set "down_payment": "0".
+    Examples:
+    - "DP 100000"       → "down_payment": "100000"
+    - "DP: Rp 50.000"   → "down_payment": "50000"
+    - "Uang muka 200rb"  → "down_payment": "200000"
+    - No DP mentioned    → "down_payment": "0"
+
+FULL EXAMPLE:
+Input: "Spanduk 2x3m Flexi 2pcs 150000, Pulpen 5pcs 10000, DP 100000"
+Output:
+{
+  "no_nota": "Tidak Diketahui",
+  "customer_name": null,
+  "transaction_date": null,
+  "payment_method": null,
+  "down_payment": "100000",
+  "items": [
+    {
+      "item_name": "Spanduk",
+      "size": "2x3m",
+      "material": "Flexi",
+      "quantity": "2 pcs",
+      "price_per_item": "150000",
+      "total_price": "300000",
+      "notes": null
+    },
+    {
+      "item_name": "Pulpen",
+      "size": null,
+      "material": null,
+      "quantity": "5 pcs",
+      "price_per_item": "10000",
+      "total_price": "50000",
+      "notes": null
+    }
+  ],
+  "total": "350000"
+}
 
 """
 
@@ -209,7 +248,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     Returns:
         Parsed receipt dict, or an error string if parsing fails.
     """
-    llm = _get_vision_llm()
+    llm = _get_llm()
 
     messages = [
         SystemMessage(content=RECEIPT_SYSTEM_PROMPT),
