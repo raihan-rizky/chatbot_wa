@@ -41,7 +41,7 @@ def _get_llm() -> ChatNebius:
         _llm = ChatNebius(
             api_key=settings.nebius_api_key,
             model=settings.nebius_model,
-            temperature=0.7,
+            temperature=0.1,
             top_p=0.95,
         )
     return _llm
@@ -208,7 +208,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     Returns:
         Parsed receipt dict, or an error string if parsing fails.
     """
-    llm = _get_vision_llm()
+    llm = _get_llm()
 
     messages = [
         SystemMessage(content=RECEIPT_SYSTEM_PROMPT),
