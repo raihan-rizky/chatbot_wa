@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 
 from fpdf import FPDF
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,19 @@ class ReceiptPDF(FPDF):
     def header(self):
         # Logo in top-left corner
         try:
-            self.image("app/public/images/toko_teladan-logo.png", 10, 6, 18)
+            # Resolve absolute path to logo
+            # Current file: app/services/pdf_service.py
+            # Logo: app/public/images/toko_teladan-logo.png
+            # Go up 2 levels from services -> app -> root, then down to public/images
+            # OR: Go up 1 level from services -> app, then public/images
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(current_dir)) # chatbot_wa
+            logo_path = os.path.join(project_root, "app", "public", "images", "toko_teladan-logo.png")
+            
+            if os.path.exists(logo_path):
+                self.image(logo_path, 10, 6, 18)
+            else:
+                logger.warning("Logo file not found at %s", logo_path)
         except Exception:
             pass
 
