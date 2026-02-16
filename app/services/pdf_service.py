@@ -233,11 +233,6 @@ def generate_receipt_pdf(data: dict) -> bytes:
     # ── DP & Sisa ────────────────────────────────────────────────
     # Logic: Use extracted DP value (or 0 if not provided)
     dp_val = _parse_num(data.get("dp", 0))
-
-    # Rule: If DP > Grand Total, reset DP to 0 (logical error prevention)
-    if dp_val > computed_grand_total:
-        dp_val = 0
-
     sisa_val = computed_grand_total - dp_val
 
     # Row DP
