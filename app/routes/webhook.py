@@ -195,10 +195,7 @@ async def _handle_struk(phone: str, text: str) -> None:
         return
 
     try:
-        # Save user message
-        await save_message(phone, "user", f"/struk {text}")
-
-        # Parse text into receipt JSON via LLM
+        # Parse text into receipt JSON via LLM (stateless, no chat history)
         result = await parse_text_to_receipt(text)
 
         if isinstance(result, dict):
@@ -226,7 +223,6 @@ async def _handle_struk(phone: str, text: str) -> None:
                 "https://bit.ly/ExcelTeladanAI"
             )
 
-            await save_message(phone, "assistant", reply_text)
             await send_message(phone, reply_text)
 
             # Generate and send PDF
@@ -240,8 +236,6 @@ async def _handle_struk(phone: str, text: str) -> None:
             except Exception:
                 logger.error("Failed to send struk PDF to %s", phone, exc_info=True)
         else:
-            # LLM returned plain text (parsing failed)
-            await save_message(phone, "assistant", result)
             await send_message(phone, result)
 
     except Exception:
