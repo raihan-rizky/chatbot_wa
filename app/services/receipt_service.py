@@ -83,7 +83,7 @@ async def save_receipt_items(data: dict) -> bool:
             "price_per_item": item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0,
             "total_price": item.get("total_price") or item.get("total_harga") or item.get("total") or 0,
             "payment_method": payment_method,
-            "notes": item.get("notes") or "",
+            "notes": item.get("notes") or item.get("keterangan") or "",
         }
         rows.append(row)
 

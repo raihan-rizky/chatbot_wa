@@ -84,7 +84,7 @@ def _fmt_number(value: str | int | float) -> str:
 
 def generate_receipt_pdf(data: dict) -> bytes:
     """Generate a receipt PDF matching the new schema fields."""
-    pdf = ReceiptPDF()
+    pdf = ReceiptPDF(orientation="L", unit="mm", format="A5")
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
 
@@ -160,8 +160,8 @@ def generate_receipt_pdf(data: dict) -> bytes:
         price = _fmt_number(item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0)
         # Total: total_price > total_harga > total (legacy LLM key)
         total = _fmt_number(item.get("total_price") or item.get("total_harga") or item.get("total") or 0)
-        # Notes: only use "notes" key; don't use "keterangan" here since it's used for item name
-        notes = str(item.get("notes") or "")
+        # Notes: use "notes" or "keterangan" (now properly contains finishing/remarks only)
+        notes = str(item.get("notes") or item.get("keterangan") or "")
 
         # Truncate long text to fit
         name = (name[:22] + '..') if len(name) > 22 else name
