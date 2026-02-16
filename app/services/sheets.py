@@ -182,10 +182,9 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
         return False
 
     try:
-        # 1. Clear existing data (keep header row 1)
-        # Using clear() then re-adding headers or resize is one way.
-        # Safer: clear range A2:Z10000
-        sheet.batch_clear(["A2:L10000"])  # Assume max 12 cols, 10k rows for daily
+        # 1. Clear existing data (safely)
+        if sheet.row_count >= 2:
+            sheet.batch_clear([f"A2:L{sheet.row_count}"])
         
         if not rows_data:
             logger.info("No data to write to sheet (empty list)")
@@ -226,7 +225,11 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
             values.append(row)
 
         # 4. Write all rows in one batch
-        sheet.update(range_name=f"A2:L{len(values) + 1}", values=values)
+        required_rows = len(values) + 1
+        if sheet.row_count < required_rows:
+            sheet.resize(rows=required_rows)
+
+        sheet.update(range_name=f"A2:L{required_rows}", values=values)
         
         logger.info("✅ Overwrote sheet with %d rows", len(values))
         return True
