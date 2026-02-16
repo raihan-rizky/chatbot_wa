@@ -18,12 +18,33 @@ from app.services.sheets import append_log, append_receipt_data, clear_sheet, ov
 from app.services.chat_history import clear_history
 from app.services.receipt_service import save_receipt_items, get_todays_receipts, generate_next_transaction_id
 
+import re
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Track processed message IDs to avoid duplicates
 _processed_ids: set[str] = set()
+
+
+def _calc_grand_total(data: dict) -> str:
+    """Auto-calculate grand total from items (qty × price) and format it."""
+    total = 0
+    for item in data.get("items", []):
+        qty_raw = item.get("quantity") or item.get("jumlah") or "1"
+        price_raw = item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0
+        # Extract numeric values
+        qty_clean = re.sub(r"[^\d.]", "", str(qty_raw).replace(",", ""))
+        price_clean = str(price_raw).replace("Rp", "").replace(".", "").replace(",", "").strip()
+        price_match = re.search(r"[\d]+", price_clean)
+        try:
+            qty_num = float(qty_clean) if qty_clean else 0
+            price_num = float(price_match.group()) if price_match else 0
+            total += int(qty_num * price_num)
+        except (ValueError, TypeError):
+            pass
+    return f"{total:,}".replace(",", ".")
 
 
 # ── Webhook verification (called once by Meta) ──────────────────
@@ -218,7 +239,7 @@ async def _handle_struk(phone: str, text: str) -> None:
                 f"✅ *Struk Digital Berhasil Dibuat*\n\n"
                 f"🧾 No. Nota: {result.get('no_nota')}\n"
                 f"📦 Jumlah Item: {item_count}\n"
-                f"💰 Total: Rp {result.get('total')}\n\n"
+                f"💰 Total: Rp {_calc_grand_total(result)}\n\n"
                 "_Jika ingin update Google Sheet ketik \spreadsheet._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
@@ -327,7 +348,7 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
                     f"✅ Data Struk Berhasil Disimpan\n"
                     f"🧾 No. Nota: {result.get('no_nota')}\n"
                     f"📦 Item: {item_count}\n"
-                    f"💰 Total: Rp {result.get('total')}"
+                    f"💰 Total: Rp {_calc_grand_total(result)}"
                 )
 
                 # Generate and send PDF receipt
@@ -410,7 +431,7 @@ async def _handle_single_image(phone: str, message: dict) -> None:
                 f"✅ *Data Struk Berhasil Disimpan*\n\n"
                 f"🧾 No. Nota: {result.get('no_nota')}\n"
                 f"📦 Jumlah Item: {item_count}\n"
-                f"💰 Total: Rp {result.get('total')}\n\n"
+                f"💰 Total: Rp {_calc_grand_total(result)}\n\n"
                 "_Cek Google Sheet dibawah untuk detail lengkap._ \n"
                 "https://bit.ly/ExcelTeladanAI"
             )
