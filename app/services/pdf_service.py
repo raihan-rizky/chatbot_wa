@@ -36,19 +36,9 @@ class ReceiptPDF(FPDF):
     def header(self):
         # Logo in top-left corner
         try:
-            # Resolve absolute path to logo
-            # Current file: app/services/pdf_service.py
-            # Logo: app/public/images/toko_teladan-logo.png
-            # Go up 2 levels from services -> app -> root, then down to public/images
-            # OR: Go up 1 level from services -> app, then public/images
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(current_dir)) # chatbot_wa
-            logo_path = os.path.join(project_root, "app", "public", "images", "toko_teladan-logo.png")
-            
-            if os.path.exists(logo_path):
+            logo_path = _find_logo()
+            if logo_path:
                 self.image(logo_path, 10, 6, 18)
-            else:
-                logger.warning("Logo file not found at %s", logo_path)
         except Exception:
             pass
 
@@ -90,6 +80,37 @@ def _parse_num(value: str | int | float) -> float:
         return float(match.group()) if match else 0.0
     except (ValueError, TypeError):
         return 0.0
+
+
+def _find_logo() -> str | None:
+    """Recursively search for the logo file in the project directory."""
+    try:
+        # Start from current file's directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Go up to the project root (assuming standard structure)
+        # app/services/pdf_service.py -> app/services -> app -> root
+        project_root = os.path.dirname(os.path.dirname(current_dir))
+        
+        target_filename = "toko_teladan-logo.png"
+
+        # 1. Quick check: specific expected location
+        expected = os.path.join(project_root, "app", "public", "images", target_filename)
+        if os.path.exists(expected):
+            return expected
+            
+        # 2. Recursive search from project root
+        for root, dirs, files in os.walk(project_root):
+            if target_filename in files:
+                found_path = os.path.join(root, target_filename)
+                logger.info("Logo found at: %s", found_path)
+                return found_path
+                
+        logger.warning("Logo file '%s' not found anywhere under %s", target_filename, project_root)
+        return None
+        
+    except Exception:
+        logger.warning("Error searching for logo", exc_info=True)
+        return None
 
 
 def _fmt_number(value: str | int | float) -> str:
