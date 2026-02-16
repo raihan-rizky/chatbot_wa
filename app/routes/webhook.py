@@ -202,6 +202,36 @@ async def _handle_reset(phone: str) -> None:
     await send_message(phone, reply)
 
 
+async def _handle_sync(phone: str) -> None:
+    """Fetch today's receipts from Supabase and overwrite Google Sheet."""
+    logger.info("Sync to spreadsheet requested by %s", phone)
+
+    try:
+        # 1. Fetch today's receipts from Supabase
+        receipts = await get_todays_receipts()
+
+        # 2. Overwrite Google Sheet with fresh data
+        success = overwrite_receipt_data(receipts)
+
+        if success:
+            reply = (
+                "✅ *Google Sheet berhasil diperbarui!*\n\n"
+                f"📊 Total {len(receipts)} baris data hari ini.\n\n"
+                "_Cek Google Sheet:_\n"
+                "https://bit.ly/ExcelTeladanAI"
+            )
+        else:
+            reply = (
+                "❌ *Gagal memperbarui Google Sheet.*\n\n"
+                "Pastikan koneksi Google Sheets sudah diatur dengan benar. 🙏"
+            )
+    except Exception:
+        logger.error("Failed to sync spreadsheet for %s", phone, exc_info=True)
+        reply = "❌ Terjadi kesalahan saat sinkronisasi. Coba lagi nanti. 🙏"
+
+    await send_message(phone, reply)
+
+
 async def _handle_struk(phone: str, text: str) -> None:
     """Convert user-typed text into a digital receipt PDF and send it back."""
     logger.info("Struk command from %s: %s", phone, text[:80])

@@ -194,38 +194,37 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
         # 2. Ensure headers exist
         if not sheet.acell('A1').value:
             headers = [
-                "ID Transaksi", "Tanggal", "Pelanggan", 
-                "Nama Barang", "Ukuran", "Bahan", 
-                "Jumlah", "Harga Satuan", "Total Harga", 
-                "Metode Bayar", "Keterangan"
+                "Transaction ID", "Date", "Customer",
+                "No", "Item Name", "Size", "Material",
+                "Qty", "Price", "Total", "Notes"
             ]
             sheet.update(range_name="A1:K1", values=[headers])
 
         # 3. Format data for writing
         # Map Supabase columns to Sheet columns
         # Sheet Cols: 
-        # A: ID, B: Date, C: Customer, D: Item, E: Size, F: Material, 
-        # G: Qty, H: Price, I: Total, J: Payment, K: Notes
+        # A: Transaction ID, B: Date, C: Customer, D: No,
+        # E: Item Name, F: Size, G: Material, H: Qty,
+        # I: Price, J: Total, K: Notes
         
         values = []
-        for r in rows_data:
+        for idx, r in enumerate(rows_data, 1):
             row = [
                 r.get("transaction_id", ""),
                 r.get("transaction_date", "")[:19].replace("T", " "), # Format ISO string
                 r.get("customer_name", ""),
+                idx,
                 r.get("item_name", ""),
                 r.get("size", ""),
                 r.get("material", ""),
                 r.get("quantity", ""),
                 r.get("price_per_item", 0),
                 r.get("total_price", 0),
-                r.get("payment_method", ""),
                 r.get("notes", "")
             ]
             values.append(row)
 
         # 4. Write all rows in one batch
-        # Determine range, e.g. A2:K(len+1)
         sheet.update(range_name=f"A2:K{len(values) + 1}", values=values)
         
         logger.info("✅ Overwrote sheet with %d rows", len(values))
