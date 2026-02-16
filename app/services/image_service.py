@@ -208,7 +208,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     Returns:
         Parsed receipt dict, or an error string if parsing fails.
     """
-    llm = _get_llm()
+    llm = _get_vision_llm()
 
     messages = [
         SystemMessage(content=RECEIPT_SYSTEM_PROMPT),
