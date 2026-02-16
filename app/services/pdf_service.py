@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 
 from fpdf import FPDF
-import os
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -77,34 +77,24 @@ def _parse_num(value: str | int | float) -> float:
         return 0.0
 
 
-def _find_logo() -> str | None:
-    """Recursively search for the logo file in the project directory."""
-    try:
-        # Start from current file's directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # Go up to the project root (assuming standard structure)
-        # app/services/pdf_service.py -> app/services -> app -> root
-        project_root = os.path.dirname(os.path.dirname(current_dir))
-        
-        target_filename = "toko_teladan-logo.png"
+# ── Logo URL & cache ─────────────────────────────────────────────
+LOGO_URL = "https://pasteboard.co/gzifkw96PMAF.png"
+_logo_cache: bytes | None = None
 
-        # 1. Quick check: specific expected location
-        expected = os.path.join(project_root, "app", "public", "images", target_filename)
-        if os.path.exists(expected):
-            return expected
-            
-        # 2. Recursive search from project root
-        for root, dirs, files in os.walk(project_root):
-            if target_filename in files:
-                found_path = os.path.join(root, target_filename)
-                logger.info("Logo found at: %s", found_path)
-                return found_path
-                
-        logger.warning("Logo file '%s' not found anywhere under %s", target_filename, project_root)
-        return None
-        
+
+def _download_logo() -> bytes | None:
+    """Download logo from URL and cache it in memory."""
+    global _logo_cache
+    if _logo_cache is not None:
+        return _logo_cache
+    try:
+        resp = httpx.get(LOGO_URL, timeout=10.0, follow_redirects=True)
+        resp.raise_for_status()
+        _logo_cache = resp.content
+        logger.info("Logo downloaded: %d bytes", len(_logo_cache))
+        return _logo_cache
     except Exception:
-        logger.warning("Error searching for logo", exc_info=True)
+        logger.warning("Failed to download logo from %s", LOGO_URL, exc_info=True)
         return None
 
 
@@ -125,12 +115,12 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
 
-    # ── Logo (Explicitly added) ──────────────────────────────────
+    # ── Logo (downloaded from URL) ────────────────────────────────
     try:
-        logo_path = _find_logo()
-        if logo_path:
-            # 18mm width, at x=10, y=6
-            pdf.image(logo_path, 10, 6, 18)
+        logo_bytes = _download_logo()
+        if logo_bytes:
+            logo_stream = io.BytesIO(logo_bytes)
+            pdf.image(logo_stream, 10, 6, 18)
     except Exception:
         logger.warning("Failed to add logo image", exc_info=True)
 
