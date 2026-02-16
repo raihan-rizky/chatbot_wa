@@ -78,7 +78,7 @@ def _parse_num(value: str | int | float) -> float:
 
 
 # ── Logo URL & cache ─────────────────────────────────────────────
-LOGO_URL = "https://pasteboard.co/gzifkw96PMAF.png"
+LOGO_URL = "https://gcdnb.pbrd.co/images/gzifkw96PMAF.png"
 _logo_cache: bytes | None = None
 
 
