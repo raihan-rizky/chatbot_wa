@@ -49,7 +49,7 @@ class ReceiptPDF(FPDF):
         self.cell(150, 7, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
 
         # Move below header block
-        self.set_y(20)
+        self.set_y(25)
 
         # Divider
         self.set_draw_color(180, 0, 0)
