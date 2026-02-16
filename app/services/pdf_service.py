@@ -236,11 +236,9 @@ def generate_receipt_pdf(data: dict) -> bytes:
 
     # Rule: If DP > Grand Total, reset DP to 0 (logical error prevention)
     if dp_val > computed_grand_total:
-        logger.warning("DP (%d) > Total (%d), resetting DP to 0", dp_val, computed_grand_total)
         dp_val = 0
 
     sisa_val = computed_grand_total - dp_val
-    logger.info("PDF Calc: Total=%d, DP=%d, Sisa=%d", computed_grand_total, dp_val, sisa_val)
 
     # Row DP
     pdf.cell(offset, 10, "DP", align="R")
