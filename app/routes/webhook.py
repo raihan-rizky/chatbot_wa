@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query, Request, Response
 
 from app.config import get_settings
 from app.services.llm_service import get_ai_response
-from app.services.chat_history import save_message
+from app.services.chat_history import save_message, get_history
 from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
@@ -122,11 +122,43 @@ async def receive_message(request: Request):
 _RESET_COMMANDS = {"/hapus", "/reset", "/clear"}
 _SYNC_COMMANDS = {"/spreadsheet", "/sync", "/excel"}
 
+# ── Welcome guide for first-time users ────────────────────────────
+_WELCOME_GUIDE = (
+    "👋 *Halo! Selamat datang di Toko Teladan AI* 🤖\n\n"
+    "Saya asisten digital yang siap membantu kamu mencatat transaksi toko.\n\n"
+    "📋 *Perintah yang tersedia:*\n\n"
+    "📝 */struk* — Buat struk digital\n"
+    "Contoh:\n"
+    "```\n"
+    "/struk Pelanggan Budi Santoso\n"
+    "1. SPF-280 3x1m 10pcs mata ayam per 50cm\n"
+    "2. SPF-340 2x1m 5pcs polos\n"
+    "3. SPF-510 4x2m 1pcs selongsong atas bawah\n"
+    "DP 50000\n"
+    "```\n\n"
+    "📊 */spreadsheet* — Sinkronisasi data ke Google Sheet\n"
+    "🗑️ */hapus* — Hapus semua riwayat chat & data\n\n"
+    "🖨️ *Kode Produk:*\n"
+    "• SPF-280 = Flexi 280gr (China)\n"
+    "• SPF-340 = Flexi 340gr (Korea)\n"
+    "• SPF-510 = Flexi 510gr (Jerman)\n\n"
+    "📸 Kamu juga bisa kirim *foto struk* dan saya akan membacanya otomatis!\n\n"
+    "Silakan kirim pesan atau perintah untuk memulai. 😊"
+)
 
 async def _handle_text(phone: str, message: dict) -> None:
     """Handle a text message — generate AI reply and save to Supabase."""
     text = message["text"]["body"]
     logger.info("Text from %s: %s", phone, text[:80])
+
+    # ── Welcome guide for first-time users ────────────────────────
+    try:
+        history = await get_history(phone, limit=1)
+        if not history:
+            await send_message(phone, _WELCOME_GUIDE)
+            logger.info("Sent welcome guide to new user %s", phone)
+    except Exception:
+        logger.warning("Failed to check history for welcome guide", exc_info=True)
 
     # ── Check for commands ────────────────────────────────────────
     stripped = text.strip()
