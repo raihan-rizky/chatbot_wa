@@ -220,7 +220,8 @@ def overwrite_receipt_data(rows_data: list[dict]) -> bool:
                 r.get("quantity", ""),
                 r.get("price_per_item", 0),
                 r.get("total_price", 0),
-                r.get("notes", "")
+                r.get("notes", ""),
+                r.get("down_payment", 0),
             ]
             values.append(row)
 

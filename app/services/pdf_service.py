@@ -194,8 +194,10 @@ def generate_receipt_pdf(data: dict) -> bytes:
         qty_raw = item.get("quantity") or item.get("jumlah") or "1"
         price_raw = item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0
         notes = str(item.get("notes") or item.get("keterangan") or "")
+        down_payment = item.get("down_payment") or 0
 
         # Auto-calculate: item total = qty × price
+        down_num = _parse_num(down_payment)
         qty_num = _parse_num(qty_raw)
         price_num = _parse_num(price_raw)
         item_total = int(qty_num * price_num) if qty_num and price_num else 0
@@ -224,7 +226,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf.set_fill_color(200, 200, 200)
     pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(computed_grand_total)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
     
-    dp_val = _parse_num(data.get("dp", 0))
+    dp_val = down_num
     sisa_val = computed_grand_total - dp_val
 
     # Row DP

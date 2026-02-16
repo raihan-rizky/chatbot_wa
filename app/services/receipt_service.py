@@ -47,6 +47,7 @@ async def save_receipt_items(data: dict) -> bool:
                   "transaction_date": "...",
                   "customer_name": "...",
                   "payment_method": "...",
+                  "down_payment": "...",
                   "items": [
                       {
                           "item_name": "...",
@@ -76,6 +77,7 @@ async def save_receipt_items(data: dict) -> bool:
     transaction_date = data.get("transaction_date") or datetime.now().isoformat()
     customer_name = data.get("customer_name") or data.get("nama_pelanggan")
     payment_method = data.get("payment_method") or "Cash"
+    down_payment = data.get("down_payment") or 0
 
     for item in data["items"]:
         row = {
@@ -90,6 +92,7 @@ async def save_receipt_items(data: dict) -> bool:
             "total_price": item.get("total_price") or item.get("total_harga") or item.get("total") or 0,
             "payment_method": payment_method,
             "notes": item.get("notes") or item.get("keterangan") or "",
+            "down_payment": down_payment
         }
         rows.append(row)
 
