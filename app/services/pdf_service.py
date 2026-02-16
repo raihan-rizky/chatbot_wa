@@ -38,15 +38,15 @@ class ReceiptPDF(FPDF):
         pass
 
         # Store name (Manual positioning)
-        self.set_xy(10, 7)
-        self.set_font("Helvetica", "B", 14)
-        self.cell(80, 6, "Toko Teladan", align="L")
+        #self.set_xy(10, 7)
+        #self.set_font("Helvetica", "B", 14)
+        #self.cell(80, 6, "Toko Teladan", align="L")
 
         # Address line below store name
-        self.set_xy(10, 13)
+        self.set_xy(10, 16)
         self.set_font("Helvetica", "", 7)
         self.set_text_color(0, 0, 0)
-        self.cell(150, 4, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
+        self.cell(150, 7, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
 
         # Move below header block
         self.set_y(20)
@@ -120,7 +120,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
         logo_bytes = _download_logo()
         if logo_bytes:
             logo_stream = io.BytesIO(logo_bytes)
-            pdf.image(logo_stream, 10, 6, 60, 6)
+            pdf.image(logo_stream, 10, 6, 60, 12)
     except Exception:
         logger.warning("Failed to add logo image", exc_info=True)
 
