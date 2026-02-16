@@ -20,8 +20,7 @@ JSON Schema:
       "keterangan": "Extra notes/remarks ONLY (e.g. 'finishing laminasi', 'mata ayam', 'cutting bulat') or null. Do NOT put the item name here."
     }
   ],
-  "total": "Grand total amount as numeric string or '0'",
-  "dp": "Down Payment (DP) amount as numeric string or '0'"
+  "total": "Grand total amount as numeric string or '0'"
 }
 
 Rules:
@@ -37,7 +36,8 @@ Rules:
    Example: "Banner 5x1 Korea" should become: nama_barang="Banner", ukuran="5x1m", bahan="Korea".
 9. CRITICAL: "harga" is ALWAYS the price PER SINGLE ITEM. The number the user writes next to the item is the UNIT PRICE, never the line total.
    Do NOT divide the price by quantity. The total is calculated as jumlah x harga.
-10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp": "0".
+   Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
+   Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
 """
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.
