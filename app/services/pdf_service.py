@@ -34,15 +34,10 @@ class ReceiptPDF(FPDF):
     """Custom PDF layout matching the Media Stationery receipt template."""
 
     def header(self):
-        # Logo in top-left corner
-        try:
-            logo_path = _find_logo()
-            if logo_path:
-                self.image(logo_path, 10, 6, 18)
-        except Exception:
-            pass
+        # Header starts below logo area, but let's keep text here
+        pass
 
-        # Store name next to logo
+        # Store name (Manual positioning)
         self.set_xy(10, 7)
         self.set_font("Helvetica", "B", 14)
         self.cell(80, 6, "Toko Teladan", align="L")
@@ -129,6 +124,15 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf = ReceiptPDF(orientation="L", unit="mm", format="A5")
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
+
+    # ── Logo (Explicitly added) ──────────────────────────────────
+    try:
+        logo_path = _find_logo()
+        if logo_path:
+            # 18mm width, at x=10, y=6
+            pdf.image(logo_path, 10, 6, 18)
+    except Exception:
+        logger.warning("Failed to add logo image", exc_info=True)
 
     # ── Receipt info ─────────────────────────────────────────────
     # Mappings from new schema or legacy schema
