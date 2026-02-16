@@ -120,7 +120,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
         logo_bytes = _download_logo()
         if logo_bytes:
             logo_stream = io.BytesIO(logo_bytes)
-            pdf.image(logo_stream, 10, 6, 80, 32)
+            pdf.image(logo_stream, 10, 6, 60, 16)
     except Exception:
         logger.warning("Failed to add logo image", exc_info=True)
 
