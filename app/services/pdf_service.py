@@ -40,12 +40,12 @@ class ReceiptPDF(FPDF):
             pass
 
         # Store name next to logo
-        self.set_xy(15, 7)
+        self.set_xy(5, 7)
         self.set_font("Helvetica", "B", 14)
         self.cell(80, 6, "Toko Teladan", align="L")
 
         # Address line below store name
-        self.set_xy(30, 13)
+        self.set_xy(5, 13)
         self.set_font("Helvetica", "", 7)
         self.set_text_color(0, 0, 0)
         self.cell(150, 4, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
