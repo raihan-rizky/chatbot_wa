@@ -46,8 +46,8 @@ class ReceiptPDF(FPDF):
         # Logo ends at y=33 (8+25). Start text at y=35.
         self.set_y(35)
         
-        self.set_font("Helvetica", "B", 10)
-        self.cell(0, 5, "Toko Teladan", new_x="LMARGIN", new_y="NEXT", align="L")
+        self.set_font("Helvetica", "B", 16)
+        self.cell(0, 10, "Toko Teladan", new_x="LMARGIN", new_y="NEXT", align="L")
         
         self.set_font("Helvetica", "", 8)
         self.set_text_color(0, 0, 0)

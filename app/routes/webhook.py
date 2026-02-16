@@ -16,7 +16,7 @@ from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
 from app.services.sheets import append_log, append_receipt_data, clear_sheet, overwrite_receipt_data
 from app.services.chat_history import clear_history
-from app.services.receipt_service import save_receipt_items, get_todays_receipts
+from app.services.receipt_service import save_receipt_items, get_todays_receipts, generate_next_transaction_id
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +202,11 @@ async def _handle_struk(phone: str, text: str) -> None:
         result = await parse_text_to_receipt(text)
 
         if isinstance(result, dict):
+            # Auto-generate transaction ID if LLM couldn't extract one
+            nota = result.get("no_nota", "Tidak Diketahui")
+            if not nota or nota == "Tidak Diketahui":
+                result["no_nota"] = await generate_next_transaction_id()
+
             # 1. Save to Supabase (Primary)
             await save_receipt_items(result)
 
@@ -311,6 +316,11 @@ async def _handle_images(phone: str, messages: list[dict]) -> None:
 
             # Log to Google Sheets & format reply
             if isinstance(result, dict):
+                # Auto-generate transaction ID if LLM couldn't extract one
+                nota = result.get("no_nota", "Tidak Diketahui")
+                if not nota or nota == "Tidak Diketahui":
+                    result["no_nota"] = await generate_next_transaction_id()
+
                 # 1. Save to Supabase (Primary)
                 await save_receipt_items(result)
 
@@ -388,6 +398,11 @@ async def _handle_single_image(phone: str, message: dict) -> None:
 
         # Log to Google Sheets
         if isinstance(result, dict):
+            # Auto-generate transaction ID if LLM couldn't extract one
+            nota = result.get("no_nota", "Tidak Diketahui")
+            if not nota or nota == "Tidak Diketahui":
+                result["no_nota"] = await generate_next_transaction_id()
+
             # 1. Save to Supabase (Primary)
             await save_receipt_items(result)
 
