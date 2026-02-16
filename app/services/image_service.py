@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 # ── Lazy-initialised vision LLM ─────────────────────────────────
 _vision_llm: ChatNebius | None = None
+_llm: ChatNebius | None = None
 
 
 def _get_vision_llm() -> ChatNebius:
@@ -31,6 +32,19 @@ def _get_vision_llm() -> ChatNebius:
             max_tokens=2048,
         )
     return _vision_llm
+
+def _get_llm() -> ChatNebius:
+    """Return (and cache) the ChatNebius instance."""
+    global _llm
+    if _llm is None:
+        settings = get_settings()
+        _llm = ChatNebius(
+            api_key=settings.nebius_api_key,
+            model=settings.nebius_model,
+            temperature=0.7,
+            top_p=0.95,
+        )
+    return _llm
 
 
 # ── Receipt extraction prompt ───────────────────────────────────
@@ -55,6 +69,7 @@ JSON Schema:
     }
   ],
   "total": "Grand total amount as numeric string or '0'"
+  "dp": "Down Payment (DP) amount as numeric string or '0'"
 }
 
 Rules:
@@ -72,6 +87,8 @@ Rules:
    Do NOT divide the price by quantity. The total is calculated as jumlah x harga.
    Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
    Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
+10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp": "0".
+
 """
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.
@@ -191,7 +208,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     Returns:
         Parsed receipt dict, or an error string if parsing fails.
     """
-    llm = _get_vision_llm()
+    llm = _get_llm()
 
     messages = [
         SystemMessage(content=RECEIPT_SYSTEM_PROMPT),
