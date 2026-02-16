@@ -72,8 +72,14 @@ async def save_receipt_items(data: dict) -> bool:
     
     # Common fields for all items in this transaction
     transaction_id = data.get("transaction_id") or data.get("no_nota") or "UNKNOWN"
-    # Use current time if not provided or invalid
-    transaction_date = data.get("transaction_date") or datetime.now().isoformat()
+    
+    # Use current time if date is missing, empty, or "Tidak Diketahui"
+    raw_date = data.get("transaction_date")
+    if not raw_date or raw_date.lower() == "tidak diketahui":
+        transaction_date = datetime.now().isoformat()
+    else:
+        transaction_date = raw_date
+        
     customer_name = data.get("customer_name") or data.get("nama_pelanggan")
     payment_method = data.get("payment_method") or "Cash"
 
