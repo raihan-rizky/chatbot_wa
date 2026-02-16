@@ -152,12 +152,19 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf.cell(5, 6, ":")
     pdf.cell(0, 6, str(trx_date), new_x="LMARGIN", new_y="NEXT")
 
-    # Row 2: Customer
+    # Row 2: Customer & Payment Method
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(30, 6, "Customer")
     pdf.cell(5, 6, ":")
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, str(customer), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(60, 6, str(customer))
+    pdf.set_text_color(0, 0, 0)
+
+    payment = data.get("payment_method") or "Cash"
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(25, 6, "Payment")
+    pdf.cell(5, 6, ":")
+    pdf.cell(0, 6, str(payment), new_x="LMARGIN", new_y="NEXT")
     
     pdf.ln(5)
 
@@ -180,12 +187,13 @@ def generate_receipt_pdf(data: dict) -> bytes:
     
     pdf.set_text_color(0, 0, 0)
 
-    # ── Table rows ───────────────────────────────────────────────
+    # ── Table rows (fixed 5 rows per page) ───────────────────────
+    FIXED_ROWS = 5
     items = data.get("items", [])
     pdf.set_font("Helvetica", "", 8)
     computed_grand_total = 0
 
-    for idx, item in enumerate(items, 1):
+    for idx in range(1, FIXED_ROWS + 1):
         # Alternate row colors
         if idx % 2 == 0:
             pdf.set_fill_color(245, 245, 245)
@@ -193,34 +201,47 @@ def generate_receipt_pdf(data: dict) -> bytes:
         else:
             fill = False
 
-        # Extract Fields (support both new english keys, old indo keys, AND legacy LLM keys)
-        name = str(item.get("item_name") or item.get("nama_barang") or item.get("keterangan") or "")
-        size = str(item.get("size") or item.get("ukuran") or "-")
-        material = str(item.get("material") or item.get("bahan") or "-")
-        qty_raw = item.get("quantity") or item.get("jumlah") or "1"
-        price_raw = item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0
-        notes = str(item.get("notes") or item.get("keterangan") or "")
+        if idx <= len(items):
+            item = items[idx - 1]
 
-        # Auto-calculate: item total = qty × price
-        qty_num = _parse_num(qty_raw)
-        price_num = _parse_num(price_raw)
-        item_total = int(qty_num * price_num) if qty_num and price_num else 0
-        computed_grand_total += item_total
+            # Extract Fields (support both new english keys, old indo keys, AND legacy LLM keys)
+            name = str(item.get("item_name") or item.get("nama_barang") or item.get("keterangan") or "")
+            size = str(item.get("size") or item.get("ukuran") or "-")
+            material = str(item.get("material") or item.get("bahan") or "-")
+            qty_raw = item.get("quantity") or item.get("jumlah") or "1"
+            price_raw = item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0
+            notes = str(item.get("notes") or item.get("keterangan") or "")
 
-        # Truncate long text to fit column widths
-        name = (name[:20] + '..') if len(name) > 20 else name
-        size = (size[:8] + '..') if len(size) > 8 else size
-        material = (material[:14] + '..') if len(material) > 14 else material
-        notes = (notes[:24] + '..') if len(notes) > 24 else notes
+            # Auto-calculate: item total = qty × price
+            qty_num = _parse_num(qty_raw)
+            price_num = _parse_num(price_raw)
+            item_total = int(qty_num * price_num) if qty_num and price_num else 0
+            computed_grand_total += item_total
 
-        pdf.cell(COL_NO, ROW_H, str(idx), border=1, fill=fill, align="C")
-        pdf.cell(COL_ITEM, ROW_H, name, border=1, fill=fill)
-        pdf.cell(COL_SIZE, ROW_H, size, border=1, fill=fill, align="C")
-        pdf.cell(COL_MATERIAL, ROW_H, material, border=1, fill=fill, align="C")
-        pdf.cell(COL_QTY, ROW_H, str(qty_raw), border=1, fill=fill, align="C")
-        pdf.cell(COL_PRICE, ROW_H, _fmt_number(price_raw), border=1, fill=fill, align="R")
-        pdf.cell(COL_TOTAL, ROW_H, _fmt_number(item_total), border=1, fill=fill, align="R")
-        pdf.cell(COL_NOTES, ROW_H, notes, border=1, fill=fill, align="L", new_x="LMARGIN", new_y="NEXT")
+            # Truncate long text to fit column widths
+            name = (name[:20] + '..') if len(name) > 20 else name
+            size = (size[:8] + '..') if len(size) > 8 else size
+            material = (material[:14] + '..') if len(material) > 14 else material
+            notes = (notes[:24] + '..') if len(notes) > 24 else notes
+
+            pdf.cell(COL_NO, ROW_H, str(idx), border=1, fill=fill, align="C")
+            pdf.cell(COL_ITEM, ROW_H, name, border=1, fill=fill)
+            pdf.cell(COL_SIZE, ROW_H, size, border=1, fill=fill, align="C")
+            pdf.cell(COL_MATERIAL, ROW_H, material, border=1, fill=fill, align="C")
+            pdf.cell(COL_QTY, ROW_H, str(qty_raw), border=1, fill=fill, align="C")
+            pdf.cell(COL_PRICE, ROW_H, _fmt_number(price_raw), border=1, fill=fill, align="R")
+            pdf.cell(COL_TOTAL, ROW_H, _fmt_number(item_total), border=1, fill=fill, align="R")
+            pdf.cell(COL_NOTES, ROW_H, notes, border=1, fill=fill, align="L", new_x="LMARGIN", new_y="NEXT")
+        else:
+            # Empty row to fill up to FIXED_ROWS
+            pdf.cell(COL_NO, ROW_H, "", border=1, fill=fill, align="C")
+            pdf.cell(COL_ITEM, ROW_H, "", border=1, fill=fill)
+            pdf.cell(COL_SIZE, ROW_H, "", border=1, fill=fill, align="C")
+            pdf.cell(COL_MATERIAL, ROW_H, "", border=1, fill=fill, align="C")
+            pdf.cell(COL_QTY, ROW_H, "", border=1, fill=fill, align="C")
+            pdf.cell(COL_PRICE, ROW_H, "", border=1, fill=fill, align="R")
+            pdf.cell(COL_TOTAL, ROW_H, "", border=1, fill=fill, align="R")
+            pdf.cell(COL_NOTES, ROW_H, "", border=1, fill=fill, align="L", new_x="LMARGIN", new_y="NEXT")
 
     # ── Grand total row (auto-calculated) ─────────────────────────
     logger.info("Computed grand_total: %s", computed_grand_total)
