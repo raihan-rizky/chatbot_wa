@@ -127,7 +127,13 @@ def generate_receipt_pdf(data: dict) -> bytes:
     # ── Receipt info ─────────────────────────────────────────────
     # Mappings from new schema or legacy schema
     trx_id = data.get("transaction_id") or data.get("no_nota") or "UNKNOWN"
-    trx_date = data.get("transaction_date") or datetime.now().strftime("%Y-%m-%d")
+    
+    # Handle date: use current date if missing or unknown
+    raw_date = data.get("transaction_date")
+    if not raw_date or raw_date.lower() == "tidak diketahui":
+        trx_date = datetime.now().strftime("%Y-%m-%d")
+    else:
+        trx_date = raw_date
     customer = data.get("customer_name") or data.get("nama_pelanggan") or "Pelanggan Umum"
     
     # Header Info (Left Aligned)
@@ -225,6 +231,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
     pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(computed_grand_total)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
 
     # ── DP & Sisa ────────────────────────────────────────────────
+    # Logic: Use extracted DP value (or 0 if not provided)
     dp_val = _parse_num(data.get("dp", 0))
     sisa_val = computed_grand_total - dp_val
 
