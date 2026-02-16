@@ -49,8 +49,8 @@ JSON Schema:
       "ukuran": "Size/dimension MUST be extracted separately (e.g. '2x3m', 'A3+', 'A4', '5x1m'). NEVER put this in nama_barang.",
       "bahan": "Material/media MUST be extracted separately (e.g. 'Flexi', 'Vinyl', 'HVS', 'Albatros', 'Korea'). NEVER put this in nama_barang.",
       "jumlah": "Quantity as string (e.g. '2 pcs', '1 lbr', '3 rim')",
-      "harga": "Unit price as numeric string (e.g. '50000')",
-      "total": "Line total as numeric string (jumlah x harga, e.g. '100000')",
+      "harga": "UNIT price PER ITEM as numeric string (e.g. '50000'). This is ALWAYS the price for ONE piece.",
+      "total": "Line total = jumlah x harga (e.g. if jumlah=2 and harga=150000, then total='300000')",
       "keterangan": "Extra notes/remarks ONLY (e.g. 'finishing laminasi', 'mata ayam', 'cutting bulat') or null. Do NOT put the item name here."
     }
   ],
@@ -68,6 +68,10 @@ Rules:
 8. CRITICAL: "ukuran" and "bahan" MUST be extracted as SEPARATE fields. Do NOT combine them into "nama_barang".
    Example: "Spanduk 2x3m Flexi" should become: nama_barang="Spanduk", ukuran="2x3m", bahan="Flexi".
    Example: "Banner 5x1 Korea" should become: nama_barang="Banner", ukuran="5x1m", bahan="Korea".
+9. CRITICAL: "harga" is ALWAYS the price PER SINGLE ITEM. The number the user writes next to the item is the UNIT PRICE, never the line total.
+   Do NOT divide the price by quantity. The total is calculated as jumlah x harga.
+   Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
+   Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
 """
 
 GENERAL_IMAGE_PROMPT = """You are a helpful AI assistant that can analyze images.

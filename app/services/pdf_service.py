@@ -33,22 +33,25 @@ class ReceiptPDF(FPDF):
     """Custom PDF layout matching the Media Stationery receipt template."""
 
     def header(self):
-        # Logo + Store info side by side
+        # Logo in top-left corner
         try:
             self.image("app/public/images/toko_teladan-logo.png", 10, 6, 18)
         except Exception:
             pass
 
-        # Store info next to logo
-        self.set_xy(30, 6)
+        # Store name next to logo
+        self.set_xy(30, 7)
         self.set_font("Helvetica", "B", 14)
-        self.cell(0, 5, "Toko Teladan", new_x="LMARGIN", new_y="NEXT", align="L")
-        self.set_x(30)
+        self.cell(100, 6, "Toko Teladan", align="L")
+
+        # Address line below store name
+        self.set_xy(30, 13)
         self.set_font("Helvetica", "", 7)
         self.set_text_color(0, 0, 0)
-        self.cell(0, 3, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", new_x="LMARGIN", new_y="NEXT", align="L")
+        self.cell(150, 4, "Jl. Temu Putih No.30 Cilegon | Telp: 0254 393022 | tokoteladancv@gmail.com", align="L")
 
-        self.ln(1)
+        # Move below header block
+        self.set_y(20)
 
         # Divider
         self.set_draw_color(180, 0, 0)
