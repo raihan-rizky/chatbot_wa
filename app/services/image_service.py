@@ -49,7 +49,7 @@ def _get_llm() -> ChatNebius:
 
 # ── Receipt extraction prompt ───────────────────────────────────
 RECEIPT_SYSTEM_PROMPT = """You are an expert OCR assistant.
-Your task is to extract data from shopping receipts into STRICT JSON format.
+Your task is to extract data from shopping receipts or user input text into STRICT JSON format.
 
 JSON Schema:
 {
@@ -87,8 +87,8 @@ Rules:
    Do NOT divide the price by quantity. The total is calculated as jumlah x harga.
    Example: "Spanduk 2pcs 150000" means harga="150000" (per piece), total="300000" (2 x 150000).
    Example: "Pulpen 5pcs 10000" means harga="10000" (per piece), total="50000" (5 x 10000).
-10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp" or "down_payment": "0".
-    Example: "DP: 100000" means down_payment = "100000".
+10. Extract "DP" or "Uang Muka" if mentioned. If not mentioned, set "dp" or down_payment="0".
+    Example: "DP: 100000" means down_payment="100000".
 
 """
 
@@ -209,7 +209,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     Returns:
         Parsed receipt dict, or an error string if parsing fails.
     """
-    llm = _get_llm()
+    llm = _get_vision_llm()
 
     messages = [
         SystemMessage(content=RECEIPT_SYSTEM_PROMPT),
@@ -222,7 +222,7 @@ async def parse_text_to_receipt(text: str) -> dict | str:
     try:
         response = await llm.ainvoke(messages)
         content = str(response.content)
-        logger.info("Text-to-receipt LLM output: %s", content[:200])
+        logger.info("Text-to-receipt LLM output: %s", content[:500])
         return _parse_json_response(content)
     except Exception:
         logger.exception("Text-to-receipt LLM call failed")
