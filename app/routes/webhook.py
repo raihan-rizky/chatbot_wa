@@ -11,7 +11,8 @@ from fastapi import APIRouter, Query, Request, Response
 from app.config import get_settings
 from app.services.llm_service import get_ai_response
 from app.services.chat_history import save_message
-from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
+from app.services.image_service import analyze_image, download_wa_media
+from app.services.text_service import parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
 from app.services.whatsapp import send_document, send_message, upload_media
 from app.services.sheets import append_log, append_receipt_data, clear_sheet, overwrite_receipt_data
