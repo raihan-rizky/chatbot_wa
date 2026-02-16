@@ -54,14 +54,12 @@ class ReceiptPDF(FPDF):
         self.set_line_width(0.2)
         self.ln(2)
 
-    """ 
     def footer(self):
         self.set_y(-15)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(150, 150, 150)
         self.cell(0, 10, "Dokumen ini dibuat secara otomatis oleh Teladan AI", align="C")
         
-    """
 
 
 def _parse_num(value: str | int | float) -> float:
@@ -190,8 +188,8 @@ def generate_receipt_pdf(data: dict) -> bytes:
     
     pdf.set_text_color(0, 0, 0)
 
-    # ── Table rows (fixed 5 rows per page) ───────────────────────
-    FIXED_ROWS = 5
+    # ── Table rows (fixed 4 rows per page) ───────────────────────
+    FIXED_ROWS = 4
     items = data.get("items", [])
     pdf.set_font("Helvetica", "", 8)
     computed_grand_total = 0
