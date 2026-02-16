@@ -71,6 +71,18 @@ class ReceiptPDF(FPDF):
         self.cell(0, 10, "Dokumen ini dibuat secara otomatis oleh Teladan AI", align="C")
 
 
+def _parse_num(value: str | int | float) -> float:
+    """Extract a numeric value from a string like '2 pcs', 'Rp 50.000', '3 rim', etc."""
+    import re
+    try:
+        clean = str(value).replace("Rp", "").replace(".", "").replace(",", "").strip()
+        # Extract the first number (int or float) from the string
+        match = re.search(r'[\d]+(?:\.\d+)?', clean)
+        return float(match.group()) if match else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _fmt_number(value: str | int | float) -> str:
     """Format a numeric string with thousand separators, e.g. '150000' -> '150.000'."""
     try:
@@ -141,6 +153,7 @@ def generate_receipt_pdf(data: dict) -> bytes:
     # ── Table rows ───────────────────────────────────────────────
     items = data.get("items", [])
     pdf.set_font("Helvetica", "", 8)
+    computed_grand_total = 0
 
     for idx, item in enumerate(items, 1):
         # Alternate row colors
@@ -151,17 +164,18 @@ def generate_receipt_pdf(data: dict) -> bytes:
             fill = False
 
         # Extract Fields (support both new english keys, old indo keys, AND legacy LLM keys)
-        # Priority: item_name > nama_barang > keterangan (LLM uses this as item desc)
         name = str(item.get("item_name") or item.get("nama_barang") or item.get("keterangan") or "")
         size = str(item.get("size") or item.get("ukuran") or "-")
         material = str(item.get("material") or item.get("bahan") or "-")
-        qty = str(item.get("quantity") or item.get("jumlah") or "1")
-        # Price: price_per_item > harga_satuan > harga (legacy LLM key)
-        price = _fmt_number(item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0)
-        # Total: total_price > total_harga > total (legacy LLM key)
-        total = _fmt_number(item.get("total_price") or item.get("total_harga") or item.get("total") or 0)
-        # Notes: use "notes" or "keterangan" (now properly contains finishing/remarks only)
+        qty_raw = item.get("quantity") or item.get("jumlah") or "1"
+        price_raw = item.get("price_per_item") or item.get("harga_satuan") or item.get("harga") or 0
         notes = str(item.get("notes") or item.get("keterangan") or "")
+
+        # Auto-calculate: item total = qty × price
+        qty_num = _parse_num(qty_raw)
+        price_num = _parse_num(price_raw)
+        item_total = int(qty_num * price_num) if qty_num and price_num else 0
+        computed_grand_total += item_total
 
         # Truncate long text to fit
         name = (name[:22] + '..') if len(name) > 22 else name
@@ -171,24 +185,20 @@ def generate_receipt_pdf(data: dict) -> bytes:
         pdf.cell(COL_ITEM, ROW_H, name, border=1, fill=fill)
         pdf.cell(COL_SIZE, ROW_H, size, border=1, fill=fill, align="C")
         pdf.cell(COL_MATERIAL, ROW_H, material, border=1, fill=fill, align="C")
-        pdf.cell(COL_QTY, ROW_H, qty, border=1, fill=fill, align="C")
-        pdf.cell(COL_PRICE, ROW_H, price, border=1, fill=fill, align="R")
-        pdf.cell(COL_TOTAL, ROW_H, total, border=1, fill=fill, align="R")
+        pdf.cell(COL_QTY, ROW_H, str(qty_raw), border=1, fill=fill, align="C")
+        pdf.cell(COL_PRICE, ROW_H, _fmt_number(price_raw), border=1, fill=fill, align="R")
+        pdf.cell(COL_TOTAL, ROW_H, _fmt_number(item_total), border=1, fill=fill, align="R")
         pdf.cell(COL_NOTES, ROW_H, notes, border=1, fill=fill, align="L", new_x="LMARGIN", new_y="NEXT")
 
-    # ── Grand total row ──────────────────────────────────────────
-    grand_total = data.get("total_price") or data.get("total") or "0"
-    
+    # ── Grand total row (auto-calculated) ─────────────────────────
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
     
-    # Align Right for total
-    # Calculate offset
     offset = COL_NO + COL_ITEM + COL_SIZE + COL_MATERIAL + COL_QTY + COL_PRICE
     pdf.cell(offset, 10, "GRAND TOTAL", align="R")
     pdf.set_fill_color(200, 200, 200)
-    pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(grand_total)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(COL_TOTAL + COL_NOTES, 10, f"Rp {_fmt_number(computed_grand_total)}", border=1, fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
 
     # ── Output as bytes ──────────────────────────────────────────
     buffer = io.BytesIO()
