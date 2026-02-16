@@ -69,7 +69,7 @@ JSON Schema:
     }
   ],
   "total": "Grand total amount as numeric string or '0'"
-  "dp": "Down Payment (DP) amount as numeric string or '0'"
+  "down_payment": "Down Payment (DP) amount as numeric string or '0'"
 }
 
 Rules:
