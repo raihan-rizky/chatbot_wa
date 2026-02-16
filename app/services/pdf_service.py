@@ -13,22 +13,18 @@ logger = logging.getLogger(__name__)
 
 """PDF service — generate digital receipt PDFs from structured data."""
 
-# ── Column widths (Total ~190) ───────────────────────────────────
-# New layout: 
-# No (8), Item+Ket (50), Size (20), Material (20), 
-# Qty (15), Price (25), Total (27), Notes (25) -> Too wide for portrait
-# Let's optimize:
-# No(8), Item(45), Size(18), Mat(18), Qty(10), Price(22), Total(25), Notes(24) = 170 + 20 margin = 190. Fits!
+# ── Column widths (Total = 190, A5 landscape minus 20mm margins) ──
+# No(8) + Item(40) + Size(15) + Mat(25) + Qty(12) + Price(25) + Total(25) + Notes(40) = 190
 
 COL_NO = 8
-COL_ITEM = 45
-COL_SIZE = 18
-COL_MATERIAL = 18
+COL_ITEM = 40
+COL_SIZE = 15
+COL_MATERIAL = 25
 COL_QTY = 12
-COL_PRICE = 28
-COL_TOTAL = 28
-COL_NOTES = 33
-ROW_H = 10  # Increased row height for better readability
+COL_PRICE = 25
+COL_TOTAL = 25
+COL_NOTES = 40
+ROW_H = 10  # Row height for readability
 
 class ReceiptPDF(FPDF):
     """Custom PDF layout matching the Media Stationery receipt template."""
@@ -211,9 +207,11 @@ def generate_receipt_pdf(data: dict) -> bytes:
         item_total = int(qty_num * price_num) if qty_num and price_num else 0
         computed_grand_total += item_total
 
-        # Truncate long text to fit
-        name = (name[:22] + '..') if len(name) > 22 else name
-        notes = (notes[:15] + '..') if len(notes) > 15 else notes
+        # Truncate long text to fit column widths
+        name = (name[:20] + '..') if len(name) > 20 else name
+        size = (size[:8] + '..') if len(size) > 8 else size
+        material = (material[:14] + '..') if len(material) > 14 else material
+        notes = (notes[:24] + '..') if len(notes) > 24 else notes
 
         pdf.cell(COL_NO, ROW_H, str(idx), border=1, fill=fill, align="C")
         pdf.cell(COL_ITEM, ROW_H, name, border=1, fill=fill)
