@@ -9,7 +9,7 @@ import traceback
 from fastapi import APIRouter, Query, Request, Response
 
 from app.config import get_settings
-from app.services.llm_service import get_ai_response
+from app.services.llm_service import get_ai_response, generate_daily_report
 from app.services.chat_history import save_message, get_history
 from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
@@ -121,6 +121,7 @@ async def receive_message(request: Request):
 # ── Commands that users can type ─────────────────────────────────
 _RESET_COMMANDS = {"/hapus", "/reset", "/clear"}
 _SYNC_COMMANDS = {"/spreadsheet", "/sync", "/excel"}
+_REPORT_COMMANDS = {"/dailyreport", "/report", "/laporan", "/rekap"}
 _HELP_COMMANDS = {"/help", "/bantuan", "/guide", "/panduan"}
 
 # ── Welcome guide for first-time users ────────────────────────────
@@ -138,6 +139,7 @@ _WELCOME_GUIDE = (
     "DP 50000 QRIS\n"
     "```\n\n"
     "📊 */spreadsheet* — Sinkronisasi data ke Google Sheet\n"
+    "📈 */dailyreport* — Laporan penjualan hari ini\n"
     "🗑️ */hapus* — Hapus semua riwayat chat & data\n\n"
     "🖨️ *Kode Produk:*\n"
     "• SPF-280 = Flexi 280gr (China)\n"
@@ -179,6 +181,10 @@ async def _handle_text(phone: str, message: dict) -> None:
 
     if stripped.lower() in _SYNC_COMMANDS:
         await _handle_sync(phone)
+        return
+
+    if stripped.lower() in _REPORT_COMMANDS:
+        await _handle_daily_report(phone)
         return
 
     if stripped.lower().startswith("/struk"):
@@ -554,5 +560,33 @@ async def _handle_single_image(phone: str, message: dict) -> None:
         logger.error("Failed to process image from %s:\n%s", phone, traceback.format_exc())
         try:
             await send_message(phone, "Maaf, gagal memproses gambar. Coba kirim ulang. 🙏")
+        except Exception:
+            pass
+
+
+async def _handle_daily_report(phone: str) -> None:
+    """Generate and send today's sales report."""
+    logger.info("Daily report requested by %s", phone)
+    await send_message(phone, "🔄 *Sedang membuat laporan hari ini...* Mohon tunggu sebentar.")
+
+    try:
+        # 1. Fetch today's receipts
+        receipts = await get_todays_receipts()
+        
+        if not receipts:
+            await send_message(phone, "📅 *Laporan Hari Ini*\n\nBelum ada transaksi yang tercatat hari ini.")
+            return
+
+        # 2. Generate analysis with LLM
+        report = await generate_daily_report(receipts)
+        
+        # 3. Send report
+        await send_message(phone, report)
+        logger.info("Daily report sent to %s", phone)
+
+    except Exception:
+        logger.error("Failed to generate daily report for %s", phone, exc_info=True)
+        try:
+            await send_message(phone, "❌ Maaf, gagal membuat laporan. Coba lagi nanti. 🙏")
         except Exception:
             pass

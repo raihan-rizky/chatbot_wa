@@ -78,3 +78,52 @@ async def get_ai_response(phone: str, user_message: str) -> str:
     except Exception:
         logger.exception("Nebius LLM call failed for phone=%s", phone)
         return "Sorry, I'm having trouble thinking right now. Please try again in a moment. 🙏"
+
+
+async def generate_daily_report(receipts: list[dict]) -> str:
+    """Generate a daily sales report using the LLM.
+
+    Args:
+        receipts: List of receipt dictionaries.
+
+    Returns:
+        A summarized report string.
+    """
+    if not receipts:
+        return "Belum ada transaksi hari ini."
+
+    llm = _get_llm()
+
+    # Convert receipts to a simplified string format for the LLM
+    receipts_text = ""
+    for r in receipts:
+        receipts_text += (
+            f"- ID: {r.get('transaction_id')}, "
+            f"Item: {r.get('item_name')} ({r.get('quantity')}), "
+            f"Total: {r.get('total_price')}, "
+            f"Payment: {r.get('payment_method')}\n"
+        )
+
+    prompt = (
+        "Analisis data penjualan hari ini dan buat laporan singkat untuk pemilik toko.\n\n"
+        "Data Transaksi:\n"
+        f"{receipts_text}\n\n"
+        "Tolong buatkan rangkuman dengan poin-poin berikut:\n"
+        "1. **Total Omzet Hari Ini** (Hitung total semua transaksi)\n"
+        "2. **Rincian Pembayaran** (Total Cash vs Transfer vs QRIS)\n"
+        "3. **Item Terlaris** (Barang apa yang paling banyak laku)\n"
+        "4. **Insight/Saran Singkat** (Misal: 'Penjualan banner sedang ramai', atau 'Stok pulpen perlu dicek')\n\n"
+        "Gunakan bahasa Indonesia yang profesional namun santai. Format output harus rapi dan enak dibaca di WhatsApp."
+    )
+
+    messages = [
+        SystemMessage(content="Kamu adalah asisten manajer toko yang pintar menganalisis data penjualan."),
+        HumanMessage(content=prompt),
+    ]
+
+    try:
+        response = await llm.ainvoke(messages)
+        return str(response.content)
+    except Exception:
+        logger.exception("Failed to generate daily report")
+        return "Maaf, gagal membuat laporan harian. Coba lagi nanti. 🙏"
