@@ -33,9 +33,11 @@ async def send_message(to: str, body: str) -> None:
     settings = get_settings()
     url = f"{settings.waha_base_url}/api/sendText"
 
+    chat_id = to if "@" in to else f"{to}@c.us"
+
     payload = {
         "session": settings.waha_session,
-        "chatId": f"{to}@c.us" if not to.endswith("@c.us") else to,
+        "chatId": chat_id,
         "text": body,
     }
 
@@ -75,9 +77,11 @@ async def send_document(
 
     b64_data = base64.b64encode(file_bytes).decode('utf-8')
 
+    chat_id = to if "@" in to else f"{to}@c.us"
+
     payload = {
         "session": settings.waha_session,
-        "chatId": f"{to}@c.us" if not to.endswith("@c.us") else to,
+        "chatId": chat_id,
         "file": {
             "mimetype": mime_type,
             "filename": filename,
