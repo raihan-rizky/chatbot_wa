@@ -1,4 +1,4 @@
-"""WhatsApp webhook routes — verification & incoming messages."""
+"""WhatsApp webhook routes — incoming messages (WAHA format)."""
 
 from __future__ import annotations
 
@@ -6,15 +6,15 @@ import asyncio
 import logging
 import traceback
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Request
 
 from app.config import get_settings
 from app.services.llm_service import get_ai_response, generate_daily_report
 from app.services.chat_history import save_message, get_history
 from app.services.image_service import analyze_image, download_wa_media, parse_text_to_receipt
 from app.services.pdf_service import generate_receipt_pdf
-from app.services.whatsapp import send_document, send_message, upload_media
-from app.services.sheets import append_log, append_receipt_data, clear_sheet, overwrite_receipt_data
+from app.services.whatsapp import send_document, send_message
+from app.services.sheets import append_log, clear_sheet, overwrite_receipt_data
 from app.services.chat_history import clear_history
 from app.services.receipt_service import save_receipt_items, get_todays_receipts, generate_next_transaction_id, get_product_by_code
 
@@ -47,71 +47,58 @@ def _calc_grand_total(data: dict) -> str:
     return f"{total:,}".replace(",", ".")
 
 
-# ── Webhook verification (called once by Meta) ──────────────────
-@router.get("/webhook")
-async def verify_webhook(
-    response: Response,
-    hub_mode: str | None = Query(None, alias="hub.mode"),
-    hub_verify_token: str | None = Query(None, alias="hub.verify_token"),
-    hub_challenge: str | None = Query(None, alias="hub.challenge"),
-):
-    """Handle the WhatsApp webhook verification handshake."""
-    settings = get_settings()
-
-    if hub_mode == "subscribe" and hub_verify_token == settings.whatsapp_verify_token:
-        logger.info("Webhook verified successfully")
-        return Response(content=hub_challenge, media_type="text/plain")
-
-    logger.warning("Webhook verification failed")
-    response.status_code = 403
-    return {"error": "Verification failed"}
-
-
 # ── Incoming messages ────────────────────────────────────────────
 @router.post("/webhook")
 async def receive_message(request: Request):
-    """Receive incoming WhatsApp messages and process replies."""
-    body = await request.json()
+    """Receive incoming WhatsApp messages (WAHA format) and process replies."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "ok"}
 
-    logger.info("Webhook payload received")
+    event = body.get("event")
+    if event != "message":
+        return {"status": "ok"}
+
+    payload = body.get("payload", {})
+    if not payload:
+        return {"status": "ok"}
+
+    msg_id = payload.get("id", "")
+    sender_jid = payload.get("from", "")
+
+    # Ignore group messages and status broadcasts
+    if "@g.us" in sender_jid or "status@broadcast" in sender_jid:
+        return {"status": "ok"}
+
+    # Ignore messages sent by the bot itself
+    if payload.get("fromMe", False):
+        return {"status": "ok"}
+
+    sender = sender_jid.replace("@c.us", "")
+
+    # Deduplicate
+    if msg_id in _processed_ids:
+        logger.info("Skipping duplicate message %s", msg_id)
+        return {"status": "ok"}
+    _processed_ids.add(msg_id)
+    if len(_processed_ids) > 1000:
+        _processed_ids.clear()
+
+    msg_type = payload.get("type", "chat")
+    has_media = payload.get("hasMedia", False)
+
+    logger.info("Webhook from %s type=%s has_media=%s id=%s", sender, msg_type, has_media, msg_id)
 
     try:
-        for entry in body.get("entry", []):
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-
-                if "messages" not in value:
-                    continue
-
-                # Collect images per sender for batch processing
-                sender_images: dict[str, list[dict]] = {}
-
-                for message in value["messages"]:
-                    msg_id = message.get("id", "")
-                    sender = message["from"]
-                    msg_type = message.get("type")
-
-                    # Deduplicate
-                    if msg_id in _processed_ids:
-                        logger.info("Skipping duplicate message %s", msg_id)
-                        continue
-                    _processed_ids.add(msg_id)
-                    if len(_processed_ids) > 1000:
-                        _processed_ids.clear()
-
-                    logger.info("Message from %s type=%s id=%s", sender, msg_type, msg_id)
-
-                    if msg_type == "text":
-                        await _handle_text(sender, message)
-                    elif msg_type == "image":
-                        sender_images.setdefault(sender, []).append(message)
-                    else:
-                        logger.info("Skipping unsupported type=%s", msg_type)
-
-                # Process batched images per sender
-                for sender, images in sender_images.items():
-                    await _handle_images(sender, images)
-
+        if has_media or msg_type == "image":
+            await _handle_single_image(sender, payload)
+        elif msg_type == "chat":
+            text = payload.get("body", "")
+            if text:
+                await _handle_text(sender, text)
+        else:
+            logger.info("Skipping unsupported message type: %s", msg_type)
     except Exception:
         logger.error("Error processing webhook:\n%s", traceback.format_exc())
 
@@ -153,9 +140,8 @@ _WELCOME_GUIDE = (
     "Silakan kirim pesan atau perintah untuk memulai. 😊"
 )
 
-async def _handle_text(phone: str, message: dict) -> None:
+async def _handle_text(phone: str, text: str) -> None:
     """Handle a text message — generate AI reply and save to Supabase."""
-    text = message["text"]["body"]
     logger.info("Text from %s: %s", phone, text[:80])
 
     # ── Welcome guide for first-time users ────────────────────────
@@ -299,17 +285,13 @@ async def _handle_struk(phone: str, text: str) -> None:
 
     try:
         # Pre-process text: generic lookup for product codes
-        # Split text by words and check if any word matches a product code
         words = text.split()
         refined_words = []
         
         for word in words:
-            # clean punctuation
             clean_word = word.strip(",.-").upper()
             product = await get_product_by_code(clean_word)
             if product:
-                # Replace code with full details: "Name (Rp Price)"
-                # This guides the LLM to use the correct name and unit price
                 refined_words.append(f'{product["name"]} (Rp {product["price"]})')
             else:
                 refined_words.append(word)
@@ -328,9 +310,6 @@ async def _handle_struk(phone: str, text: str) -> None:
 
             # 1. Save to Supabase (Primary)
             await save_receipt_items(result)
-
-            # NOTE: Auto-save to Google Sheets is DISABLED.
-            # Use /spreadsheet command to sync.
 
             # Item count
             item_count = len(result.get("items", []))
@@ -352,8 +331,7 @@ async def _handle_struk(phone: str, text: str) -> None:
                 pdf_bytes = generate_receipt_pdf(result)
                 nota_id = result.get("no_nota", "receipt")
                 pdf_filename = f"Struk_{nota_id}.pdf"
-                wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
-                await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
+                await send_document(phone, pdf_bytes, "application/pdf", pdf_filename, caption="📄 Struk digital kamu")
                 logger.info("Struk PDF sent to %s", phone)
             except Exception:
                 logger.error("Failed to send struk PDF to %s", phone, exc_info=True)
@@ -368,141 +346,26 @@ async def _handle_struk(phone: str, text: str) -> None:
             pass
 
 
-async def _handle_images(phone: str, messages: list[dict]) -> None:
-    """Handle one or more image messages from the same sender.
+async def _handle_single_image(phone: str, payload: dict) -> None:
+    """Handle a single image message (WAHA) — download, OCR, extract info, save to Supabase."""
+    msg_id = payload.get("id")
+    # In WAHA, caption is often stored in 'body' for media messages.
+    caption = payload.get("body", "")
 
-    Features:
-        - Rate limiting: enforces max_images_per_request
-        - Concurrent downloads: fetches all media in parallel
-        - Individual analysis: each image analyzed separately (receipts need own JSON)
-        - Each receipt logged to Google Sheets individually
-        - Consolidated reply: one WhatsApp message combining all results
-    """
-    settings = get_settings()
-    max_images = settings.max_images_per_request
-
-    # ── Rate limiting ────────────────────────────────────────────
-    if len(messages) > max_images:
-        logger.warning(
-            "User %s sent %d images, capping to %d", phone, len(messages), max_images
-        )
-        await send_message(
-            phone,
-            f"⚠️ Maksimal {max_images} gambar sekaligus ya. "
-            f"Hanya {max_images} gambar pertama yang akan diproses.",
-        )
-        messages = messages[:max_images]
-
-    # ── Single image fast path ───────────────────────────────────
-    if len(messages) == 1:
-        await _handle_single_image(phone, messages[0])
-        return
-
-    # ── Multi-image processing ───────────────────────────────────
-    media_ids = [msg["image"]["id"] for msg in messages]
-    captions = [msg.get("image", {}).get("caption") for msg in messages]
-
-    logger.info("Batch processing %d images from %s", len(messages), phone)
-
-    try:
-        # Save user messages to Supabase
-        for i, media_id in enumerate(media_ids):
-            user_content = captions[i] if captions[i] else f"[Gambar {i + 1} dikirim]"
-            await save_message(phone, "user", user_content, image_url=f"wa_media:{media_id}")
-
-        # Concurrent downloads
-        download_tasks = [download_wa_media(mid) for mid in media_ids]
-        download_results = await asyncio.gather(*download_tasks, return_exceptions=True)
-
-        # Analyze each image individually and collect results
-        reply_parts: list[str] = []
-        for i, dl_result in enumerate(download_results):
-            img_label = f"📷 *Gambar {i + 1}:*"
-
-            if isinstance(dl_result, Exception):
-                logger.error(
-                    "Failed to download image %d (media_id=%s): %s",
-                    i + 1, media_ids[i], dl_result,
-                )
-                reply_parts.append(f"{img_label}\n⚠️ Gagal mengunduh gambar ini.")
-                continue
-
-            # Analyze with vision model
-            result = await analyze_image(dl_result, captions[i])
-
-            # Log to Google Sheets & format reply
-            if isinstance(result, dict):
-                # Auto-generate transaction ID if LLM couldn't extract one
-                nota = result.get("no_nota", "Tidak Diketahui")
-                if not nota or nota == "Tidak Diketahui":
-                    result["no_nota"] = await generate_next_transaction_id()
-
-                # 1. Save to Supabase (Primary)
-                await save_receipt_items(result)
-
-                # NOTE: Auto-save to Sheets DISABLED. Use /spreadsheet to sync.
-
-                item_count = len(result.get("items", []))
-
-                reply_parts.append(
-                    f"{img_label}\n"
-                    f"✅ Data Struk Berhasil Disimpan\n"
-                    f"🧾 No. Nota: {result.get('no_nota')}\n"
-                    f"📦 Item: {item_count}\n"
-                    f"💰 Total: Rp {_calc_grand_total(result)}"
-                )
-
-                # Generate and send PDF receipt
-                try:
-                    pdf_bytes = generate_receipt_pdf(result)
-                    nota_id = result.get('no_nota', 'receipt')
-                    pdf_filename = f"Struk_{nota_id}.pdf"
-                    wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
-                    await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
-                except Exception:
-                    logger.error("Failed to send PDF for image %d", i + 1, exc_info=True)
-            else:
-                append_log(phone, "assistant", result)
-                reply_parts.append(f"{img_label}\n{result}")
-
-        # Build consolidated reply
-        consolidated = "\n\n".join(reply_parts)
-
-        # Add sheet link if any receipt was found
-        has_receipt = any("Data Struk" in part for part in reply_parts)
-        if has_receipt:
-            consolidated += (
-                "\n\n_Cek Google Sheet dibawah untuk detail lengkap._ \n"
-                "https://bit.ly/ExcelTeladanAI"
-            )
-
-        # Save AI response & send one consolidated reply
-        await save_message(phone, "assistant", consolidated)
-        await send_message(phone, consolidated)
-        logger.info("Batch analysis sent to %s (%d images)", phone, len(messages))
-
-    except Exception:
-        logger.error("Failed to batch-process images from %s:\n%s", phone, traceback.format_exc())
-        try:
-            await send_message(phone, "Maaf, gagal memproses gambar. Coba kirim ulang. 🙏")
-        except Exception:
-            pass
-
-
-async def _handle_single_image(phone: str, message: dict) -> None:
-    """Handle a single image message — download, OCR, extract info, save to Supabase."""
-    media_id = message["image"]["id"]
-    caption = message.get("image", {}).get("caption")
-
-    logger.info("Image from %s (media_id=%s)", phone, media_id)
+    logger.info("Media from %s (msg_id=%s)", phone, msg_id)
 
     try:
         # Save user image message to Supabase
         user_content = caption if caption else "[Gambar dikirim]"
-        await save_message(phone, "user", user_content, image_url=f"wa_media:{media_id}")
+        await save_message(phone, "user", user_content, image_url=f"wa_media:{msg_id}")
 
-        # Download image from WhatsApp
-        image_bytes = await download_wa_media(media_id)
+        # Download image from WAHA API
+        image_bytes = await download_wa_media(msg_id)
+        if not image_bytes:
+            logger.error("Failed to download image %s", msg_id)
+            await send_message(phone, "Maaf, gagal mengunduh gambar ini. Coba kirim ulang.")
+            return
+
         logger.info("Downloaded image: %d bytes", len(image_bytes))
 
         # Analyze with vision model
@@ -521,8 +384,6 @@ async def _handle_single_image(phone: str, message: dict) -> None:
 
             # 1. Save to Supabase (Primary)
             await save_receipt_items(result)
-
-            # NOTE: Auto-save to Sheets DISABLED. Use /spreadsheet to sync.
 
             # Item count
             item_count = len(result.get('items', []))
@@ -549,15 +410,14 @@ async def _handle_single_image(phone: str, message: dict) -> None:
                 pdf_bytes = generate_receipt_pdf(result)
                 nota_id = result.get('no_nota', 'receipt')
                 pdf_filename = f"Struk_{nota_id}.pdf"
-                wa_media_id = await upload_media(pdf_bytes, "application/pdf", pdf_filename)
-                await send_document(phone, wa_media_id, pdf_filename, caption="📄 Struk digital kamu")
+                await send_document(phone, pdf_bytes, "application/pdf", pdf_filename, caption="📄 Struk digital kamu")
                 logger.info("PDF receipt sent to %s", phone)
             except Exception:
                 logger.error("Failed to send PDF to %s", phone, exc_info=True)
         logger.info("Image analysis sent to %s", phone)
 
     except Exception:
-        logger.error("Failed to process image from %s:\n%s", phone, traceback.format_exc())
+        logger.error("Failed to process media from %s:\n%s", phone, traceback.format_exc())
         try:
             await send_message(phone, "Maaf, gagal memproses gambar. Coba kirim ulang. 🙏")
         except Exception:

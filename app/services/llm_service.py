@@ -109,10 +109,10 @@ async def generate_daily_report(receipts: list[dict]) -> str:
         "Data Transaksi:\n"
         f"{receipts_text}\n\n"
         "Tolong buatkan rangkuman dengan poin-poin berikut:\n"
-        "1. **Total Omzet Hari Ini** (Hitung total semua transaksi)\n"
-        "2. **Rincian Pembayaran** (Total Cash vs Transfer vs QRIS)\n"
-        "3. **Item Terlaris** (Barang apa yang paling banyak laku)\n"
-        "4. **Insight/Saran Singkat** (Misal: 'Penjualan banner sedang ramai', atau 'Stok pulpen perlu dicek')\n\n"
+        "1. *Total Omzet Hari Ini* (Hitung total semua transaksi)\n"
+        "2. *Rincian Pembayaran* (Total Cash vs Transfer vs QRIS)\n"
+        "3. *Item Terlaris* (Barang apa yang paling banyak laku)\n"
+        "4. *Insight/Saran Singkat* (Misal: 'Penjualan banner sedang ramai', atau 'Stok pulpen perlu dicek')\n\n"
         "Gunakan bahasa Indonesia yang profesional namun santai. Format output harus rapi dan enak dibaca di WhatsApp."
     )
 

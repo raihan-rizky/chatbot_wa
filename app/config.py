@@ -18,10 +18,10 @@ class Settings(BaseSettings):
     nebius_model: str = "Qwen/Qwen3-14B"
     nebius_vision_model: str = "Qwen/Qwen2.5-VL-72B-Instruct"
 
-    # ── WhatsApp Cloud API ───────────────────────────────────────
-    whatsapp_access_token: str
-    whatsapp_phone_number_id: str
-    whatsapp_verify_token: str
+    # ── WAHA (WhatsApp HTTP API) ─────────────────────────────────
+    waha_base_url: str = "http://localhost:3000"
+    waha_session: str = "default"
+    waha_api_key: str = ""
 
     # ── Supabase ─────────────────────────────────────────────────
     supabase_url: str = ""

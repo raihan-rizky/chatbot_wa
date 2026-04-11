@@ -143,26 +143,25 @@ If the image contains text, read and transcribe it.
 Respond in the same language as any text found, or in Indonesian by default."""
 
 
-async def download_wa_media(media_id: str) -> bytes:
-    """Download media from WhatsApp Cloud API."""
+async def download_wa_media(msg_id: str) -> bytes:
+    """Download media from WAHA API using the message ID."""
     settings = get_settings()
-    headers = {"Authorization": f"Bearer {settings.whatsapp_access_token}"}
+    url = f"{settings.waha_base_url}/api/{settings.waha_session}/messages/{msg_id}/download"
+
+    headers = {}
+    if settings.waha_api_key:
+        headers["X-Api-Key"] = settings.waha_api_key
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Step 1: Get media URL
-        meta_url = f"https://graph.facebook.com/v22.0/{media_id}"
-        resp = await client.get(meta_url, headers=headers)
-        resp.raise_for_status()
-        media_url = resp.json()["url"]
-
-        logger.info("📥 Downloading media from: %s", media_url[:80])
-
-        # Step 2: Download actual file
-        file_resp = await client.get(media_url, headers=headers)
-        file_resp.raise_for_status()
-
-        logger.info("📥 Downloaded %d bytes", len(file_resp.content))
-        return file_resp.content
+        logger.info("📥 Downloading media via WAHA for msg %s", msg_id)
+        
+        resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            logger.error("Failed to download media %s — HTTP %s", msg_id, resp.status_code)
+            return b""
+            
+        logger.info("📥 Downloaded %d bytes", len(resp.content))
+        return resp.content
 
 
 async def analyze_image(image_bytes: bytes, caption: str | None = None) -> str | dict:
